@@ -3,13 +3,16 @@ import { useModuleAccess } from '@/hooks/useModuleAccess'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function ModuleGate({
+  moduleKey,
   module_key,
   children,
 }: {
-  module_key: string
+  moduleKey?: string
+  module_key?: string
   children: React.ReactNode
 }) {
-  const { isEnabled, isLoading } = useModuleAccess(module_key)
+  const activeKey = moduleKey || module_key || ''
+  const { isEnabled, isLoading } = useModuleAccess(activeKey)
 
   if (isLoading) {
     return (

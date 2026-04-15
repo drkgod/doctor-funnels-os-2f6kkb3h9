@@ -31,7 +31,7 @@ import {
 
 export default function ClientDashboardWrapper() {
   return (
-    <ModuleGate module_key="dashboard">
+    <ModuleGate moduleKey="dashboard">
       <ClientDashboard />
     </ModuleGate>
   )

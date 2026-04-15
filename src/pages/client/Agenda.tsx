@@ -167,7 +167,7 @@ export default function Agenda() {
 
   if (error) {
     return (
-      <ModuleGate module_key="agenda">
+      <ModuleGate moduleKey="agenda">
         <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
           <p className="text-destructive mb-4 font-medium">
             Não foi possível carregar a agenda. Tente novamente.
@@ -179,7 +179,7 @@ export default function Agenda() {
   }
 
   return (
-    <ModuleGate module_key="agenda">
+    <ModuleGate moduleKey="agenda">
       <div className="flex flex-col h-[calc(100vh-100px)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div className="flex items-center justify-between md:justify-start gap-3">

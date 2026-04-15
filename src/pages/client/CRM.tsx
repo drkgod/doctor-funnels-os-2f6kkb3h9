@@ -85,7 +85,7 @@ export default function CRM() {
   const hasPatients = Object.values(patientsByStage).some((arr) => arr.length > 0)
 
   return (
-    <ModuleGate module_key="crm">
+    <ModuleGate moduleKey="crm">
       <div className="flex flex-col h-full p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-4">

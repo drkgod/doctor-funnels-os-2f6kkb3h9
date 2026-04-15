@@ -1,5 +1,10 @@
 import { GenericPage } from '@/components/GenericPage'
+import { ModuleGate } from '@/components/ModuleGate'
 
 export default function Email() {
-  return <GenericPage title="Email" subtitle="Campanhas e comunicações transacionais" />
+  return (
+    <ModuleGate moduleKey="email">
+      <GenericPage title="Email" subtitle="Campanhas e comunicações transacionais" />
+    </ModuleGate>
+  )
 }
