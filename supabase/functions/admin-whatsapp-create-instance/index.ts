@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
         headers: { token: instanceToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled: true,
-          url: `${webhookBaseUrl}/functions/v1/handle-uazapi-webhook`,
+          url: `${webhookBaseUrl}/functions/v1/handle-uazapi-webhook?tenant_id=${tenant_id}`,
           events: ['messages', 'connection', 'messages_update'],
           excludeMessages: ['wasSentByApi'],
         }),
