@@ -35,15 +35,63 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Bot, Search, MoreHorizontal, Settings, Play, Pause, Trash2 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import {
+  Bot,
+  Search,
+  MoreHorizontal,
+  Settings,
+  Play,
+  Pause,
+  Trash2,
+  AlertCircle,
+} from 'lucide-react'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 const modelLabels: Record<string, string> = {
   'gpt-4o': 'GPT-4o',
   'gpt-4o-mini': 'GPT-4o Mini',
   'claude-sonnet': 'Claude Sonnet',
   'claude-haiku': 'Claude Haiku',
+}
+
+const ModelBadge = ({ model }: { model: string }) => {
+  const styles: Record<string, string> = {
+    'gpt-4o': 'bg-primary/10 text-primary',
+    'gpt-4o-mini': 'bg-accent/10 text-accent',
+    'claude-sonnet': 'bg-[hsl(270,60%,50%)]/10 text-[hsl(270,60%,50%)]',
+    'claude-haiku': 'bg-[hsl(330,60%,50%)]/10 text-[hsl(330,60%,50%)]',
+  }
+  const label = modelLabels[model] || model
+  const style = styles[model] || 'bg-muted text-muted-foreground'
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold font-mono ${style}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const isActive = status === 'active'
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold',
+        isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      <span
+        className={cn(
+          'w-1.5 h-1.5 rounded-full mr-1.5',
+          isActive ? 'bg-success' : 'bg-muted-foreground',
+        )}
+      />
+      {isActive ? 'Ativo' : 'Pausado'}
+    </span>
+  )
 }
 
 export default function Bots() {
@@ -154,13 +202,32 @@ export default function Bots() {
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <style>{`
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+        .shimmer-bg {
+          position: relative;
+          overflow: hidden;
+          background-color: hsl(var(--secondary) / 0.3);
+        }
+        .shimmer-bg::after {
+          content: "";
+          position: absolute;
+          top: 0; right: 0; bottom: 0; left: 0;
+          transform: translateX(-100%);
+          background-image: linear-gradient(90deg, transparent, hsl(var(--secondary) / 0.5), transparent);
+          animation: shimmer 1.5s infinite;
+        }
+      `}</style>
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Chatbots WhatsApp</h1>
         <p className="text-muted-foreground">Gerenciar bots e prompts por tenant</p>
       </div>
 
       <div className="flex flex-col md:flex-row items-center gap-3">
-        <div className="relative w-full md:w-[280px]">
+        <div className="relative w-full md:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por tenant..."
@@ -169,7 +236,7 @@ export default function Bots() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            className="pl-9 h-10"
+            className="pl-9 h-10 w-full md:min-w-[240px] bg-input border-border rounded-md text-[14px]"
           />
         </div>
 
@@ -180,7 +247,7 @@ export default function Bots() {
             setPage(1)
           }}
         >
-          <SelectTrigger className="w-full md:w-[160px] h-10">
+          <SelectTrigger className="w-full md:min-w-[140px] h-10 border-border rounded-md">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -197,7 +264,7 @@ export default function Bots() {
             setPage(1)
           }}
         >
-          <SelectTrigger className="w-full md:w-[180px] h-10">
+          <SelectTrigger className="w-full md:min-w-[140px] h-10 border-border rounded-md">
             <SelectValue placeholder="Modelo" />
           </SelectTrigger>
           <SelectContent>
@@ -222,74 +289,74 @@ export default function Bots() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card overflow-hidden">
+      <div className="rounded-md border border-border bg-card overflow-hidden">
         <Table>
-          <TableHeader className="bg-secondary/50">
-            <TableRow>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+          <TableHeader className="bg-secondary">
+            <TableRow className="border-border">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 Tenant
               </TableHead>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 Modelo
               </TableHead>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 Status
               </TableHead>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 RAG
               </TableHead>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 Prompt
               </TableHead>
-              <TableHead className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto">
                 Atualizado
               </TableHead>
-              <TableHead className="w-16"></TableHead>
+              <TableHead className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.5px] p-[12px] px-[16px] h-auto w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
+                <TableRow key={i} className="border-border">
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-4 w-32 rounded" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-20 rounded-full" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-5 w-20 rounded-full" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-16 rounded-full" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-5 w-16 rounded-full" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-10" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-4 w-10 rounded" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-48" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-4 w-48 rounded" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-4 w-24 rounded" />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-8 w-8 rounded-full" />
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="shimmer-bg h-8 w-8 rounded-md" />
                   </TableCell>
                 </TableRow>
               ))
             ) : paginatedBots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-64 text-center">
+                <TableCell colSpan={7} className="h-64 border-b-0">
                   {error ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <AlertCircle className="w-10 h-10 text-destructive mb-2" />
-                      <p className="text-destructive font-medium">{error}</p>
-                      <Button variant="outline" onClick={loadBots} className="mt-2">
+                    <div className="pt-[80px] pb-[80px] text-center flex flex-col items-center">
+                      <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+                      <p className="text-[14px] font-medium text-destructive">{error}</p>
+                      <Button variant="outline" onClick={loadBots} className="mt-6 h-10">
                         Tentar novamente
                       </Button>
                     </div>
                   ) : bots.length === 0 ? (
-                    <div className="flex flex-col items-center gap-3 justify-center h-full">
-                      <Bot className="w-12 h-12 text-muted-foreground/50" />
-                      <div className="text-lg font-semibold mt-2">Nenhum chatbot configurado</div>
-                      <p className="text-sm text-muted-foreground max-w-sm">
+                    <div className="pt-[80px] pb-[80px] text-center flex flex-col items-center">
+                      <Bot className="w-12 h-12 text-muted-foreground" />
+                      <h3 className="text-[18px] font-semibold mt-4">Nenhum chatbot configurado</h3>
+                      <p className="text-[14px] text-muted-foreground mt-2">
                         Crie o primeiro chatbot para um tenant.
                       </p>
                       <Button
@@ -297,82 +364,84 @@ export default function Bots() {
                           setIsCreateDialogOpen(true)
                           loadTenantsForCreate()
                         }}
-                        className="mt-4"
+                        className="mt-6 h-10 px-4 font-semibold"
                       >
                         Criar Bot
                       </Button>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground py-10">
-                      Nenhum chatbot encontrado para os filtros atuais.
-                    </p>
+                    <div className="pt-[80px] pb-[80px] text-center">
+                      <p className="text-[14px] text-muted-foreground">
+                        Nenhum chatbot encontrado para os filtros atuais.
+                      </p>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
             ) : (
               paginatedBots.map((bot) => (
-                <TableRow key={bot.id} className="hover:bg-secondary/50 transition-colors">
-                  <TableCell>
+                <TableRow
+                  key={bot.id}
+                  className="border-border border-b hover:bg-secondary/50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/admin/bots/${bot.id}`)}
+                >
+                  <TableCell className="p-[12px] px-[16px]">
                     <Link
                       to={`/admin/tenants/${bot.tenant_id}`}
                       className="font-medium text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {bot.tenant_name}
                     </Link>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="font-medium bg-background shadow-sm">
-                      {modelLabels[bot.model] || bot.model}
-                    </Badge>
+                  <TableCell className="p-[12px] px-[16px]">
+                    <ModelBadge model={bot.model} />
                   </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={
-                        bot.status === 'active'
-                          ? 'bg-success/10 text-success border-success/20 hover:bg-success/20'
-                          : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
-                      }
-                      variant="outline"
+                  <TableCell className="p-[12px] px-[16px]">
+                    <StatusBadge status={bot.status} />
+                  </TableCell>
+                  <TableCell className="p-[12px] px-[16px]">
+                    <span
+                      className={cn(
+                        bot.rag_enabled ? 'text-success font-medium' : 'text-muted-foreground',
+                      )}
                     >
-                      {bot.status === 'active' ? 'Ativo' : 'Pausado'}
-                    </Badge>
+                      {bot.rag_enabled ? 'Sim' : 'Não'}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {bot.rag_enabled ? 'Sim' : 'Não'}
+                  <TableCell className="p-[12px] px-[16px]">
+                    <div className="text-[12px] text-muted-foreground max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                      {bot.system_prompt ? (
+                        bot.system_prompt
+                      ) : (
+                        <span className="italic">Sem prompt configurado</span>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="max-w-[250px] truncate text-sm">
-                    {bot.system_prompt ? (
-                      <span className="text-muted-foreground">
-                        {bot.system_prompt.substring(0, 60)}
-                        {bot.system_prompt.length > 60 ? '...' : ''}
-                      </span>
-                    ) : (
-                      <span className="italic text-muted-foreground/70">
-                        Sem prompt configurado
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                  <TableCell className="p-[12px] px-[16px] text-[14px] text-muted-foreground whitespace-nowrap">
                     {format(new Date(bot.updated_at), 'dd/MM/yyyy HH:mm')}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="p-[12px] px-[16px]" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="w-8 h-8">
+                        <Button variant="ghost" size="icon" className="w-8 h-8 rounded-md">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-[160px] bg-card border-border shadow-[0_4px_12px_rgba(0,0,0,0.1)] rounded-md"
+                      >
                         <DropdownMenuItem
                           onClick={() => navigate(`/admin/bots/${bot.id}`)}
-                          className="cursor-pointer"
+                          className="py-2 px-3 text-[13px] cursor-pointer hover:bg-secondary"
                         >
                           <Settings className="w-4 h-4 mr-2" />
                           Configurar
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleToggleStatus(bot.id, bot.status)}
-                          className="cursor-pointer"
+                          className="py-2 px-3 text-[13px] cursor-pointer hover:bg-secondary"
                         >
                           {bot.status === 'active' ? (
                             <Pause className="w-4 h-4 mr-2" />
@@ -383,7 +452,7 @@ export default function Bots() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => setBotToDelete(bot)}
-                          className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                          className="py-2 px-3 text-[13px] cursor-pointer hover:bg-secondary text-destructive focus:text-destructive focus:bg-destructive/10"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
@@ -397,25 +466,49 @@ export default function Bots() {
           </TableBody>
         </Table>
 
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center py-3 px-6 border-t bg-card/50">
-            <span className="text-sm text-muted-foreground">
+        {totalPages > 0 && filteredBots.length > 0 && (
+          <div className="flex justify-between items-center py-[12px] px-[16px] border-t border-border bg-card">
+            <span className="text-[13px] text-muted-foreground">
               Mostrando {(page - 1) * 20 + 1} a {Math.min(page * 20, filteredBots.length)} de{' '}
-              {filteredBots.length} chatbots
+              {filteredBots.length}
             </span>
             <div className="flex gap-2">
               <Button
-                variant={page === 1 ? 'ghost' : 'outline'}
-                size="icon"
+                variant="ghost"
                 disabled={page === 1}
+                className={cn(
+                  'w-8 h-8 p-0 rounded-md text-[13px]',
+                  page === 1 ? 'opacity-50' : 'hover:bg-secondary',
+                )}
                 onClick={() => setPage((p) => p - 1)}
               >
                 &lt;
               </Button>
+              {Array.from({ length: totalPages }).map((_, i) => {
+                const p = i + 1
+                return (
+                  <Button
+                    key={p}
+                    variant={page === p ? 'default' : 'ghost'}
+                    className={cn(
+                      'w-8 h-8 p-0 rounded-md text-[13px]',
+                      page === p
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        : 'hover:bg-secondary',
+                    )}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                )
+              })}
               <Button
-                variant={page === totalPages ? 'ghost' : 'outline'}
-                size="icon"
+                variant="ghost"
                 disabled={page === totalPages}
+                className={cn(
+                  'w-8 h-8 p-0 rounded-md text-[13px]',
+                  page === totalPages ? 'opacity-50' : 'hover:bg-secondary',
+                )}
                 onClick={() => setPage((p) => p + 1)}
               >
                 &gt;
@@ -426,37 +519,48 @@ export default function Bots() {
       </div>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[480px] p-6 rounded-md">
           <DialogHeader>
-            <DialogTitle>Criar Chatbot IA</DialogTitle>
+            <DialogTitle className="text-[18px] font-semibold">Criar Chatbot IA</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label>Tenant</Label>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-[13px] font-medium text-muted-foreground mb-1 block">
+                Tenant
+              </Label>
               <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 text-[14px] border-border rounded-md">
                   <SelectValue placeholder="Selecione um tenant" />
                 </SelectTrigger>
                 <SelectContent>
                   {tenants.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
+                    <div className="p-6 text-[14px] text-muted-foreground italic text-center">
                       Todos os tenants já possuem um chatbot.
                     </div>
                   ) : (
                     tenants.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.name}{' '}
-                        <span className="text-muted-foreground ml-1 text-xs">({t.plan})</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-foreground">{t.name}</span>
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 rounded-full"
+                          >
+                            {t.plan}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Modelo</Label>
+            <div className="space-y-1">
+              <Label className="text-[13px] font-medium text-muted-foreground mb-1 block">
+                Modelo
+              </Label>
               <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 text-[14px] border-border rounded-md">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -469,11 +573,15 @@ export default function Bots() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+          <DialogFooter className="mt-2 gap-2">
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="h-10">
               Cancelar
             </Button>
-            <Button onClick={handleCreate} disabled={!selectedTenant || isCreating}>
+            <Button
+              onClick={handleCreate}
+              disabled={!selectedTenant || isCreating}
+              className="h-10"
+            >
               {isCreating ? 'Criando...' : 'Criar Bot'}
             </Button>
           </DialogFooter>
@@ -481,20 +589,24 @@ export default function Bots() {
       </Dialog>
 
       <Dialog open={!!botToDelete} onOpenChange={(o) => !o && setBotToDelete(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[480px] p-6 rounded-md">
           <DialogHeader>
-            <DialogTitle>Excluir chatbot</DialogTitle>
-            <DialogDescription className="text-base text-foreground leading-relaxed mt-2">
+            <DialogTitle className="text-[18px] font-semibold">Excluir chatbot</DialogTitle>
+            <DialogDescription className="text-[14px] leading-[1.6] mt-2">
               Tem certeza? O bot do tenant{' '}
               <span className="font-semibold">{botToDelete?.tenant_name}</span> e todos os
               documentos RAG serão excluídos. Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setBotToDelete(null)}>
+            <Button variant="outline" onClick={() => setBotToDelete(null)} className="h-10">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              className="h-10 text-white bg-destructive"
+            >
               Excluir
             </Button>
           </DialogFooter>

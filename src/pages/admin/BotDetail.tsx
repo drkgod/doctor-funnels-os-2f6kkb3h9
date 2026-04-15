@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { botService } from '@/services/botService'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -15,16 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -33,11 +23,10 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, FileText, File, Trash2, UploadCloud, ChevronDown } from 'lucide-react'
+import { FileText, File, UploadCloud, ChevronDown, ArrowLeft, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
 
 const modelLabels: Record<string, string> = {
   'gpt-4o': 'GPT-4o',
@@ -47,6 +36,69 @@ const modelLabels: Record<string, string> = {
 }
 
 const VARIABLES = ['TENANT_NAME', 'DOCTOR_NAME', 'SPECIALTY', 'BUSINESS_HOURS', 'ADDRESS', 'PHONE']
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const isActive = status === 'active'
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold',
+        isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      <span
+        className={cn(
+          'w-1.5 h-1.5 rounded-full mr-1.5',
+          isActive ? 'bg-success' : 'bg-muted-foreground',
+        )}
+      />
+      {isActive ? 'Ativo' : 'Pausado'}
+    </span>
+  )
+}
+
+const EmbeddingStatusBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'pending':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#Edb913]/10 text-[#Edb913]">
+          Pendente
+        </span>
+      )
+    case 'processing':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
+          Processando
+        </span>
+      )
+    case 'ready':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success/10 text-success">
+          Pronto
+        </span>
+      )
+    case 'error':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-destructive/10 text-destructive">
+          Erro
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
+          {status}
+        </span>
+      )
+  }
+}
+
+const getFileIcon = (fileName: string) => {
+  const ext = fileName.split('.').pop()?.toLowerCase()
+  if (ext === 'pdf') return <FileText className="w-5 h-5 text-destructive shrink-0" />
+  if (ext === 'doc' || ext === 'docx') return <FileText className="w-5 h-5 text-primary shrink-0" />
+  if (ext === 'txt') return <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
+  return <File className="w-5 h-5 text-muted-foreground shrink-0" />
+}
 
 export default function BotDetail() {
   const { id } = useParams()
@@ -66,6 +118,8 @@ export default function BotDetail() {
   const [status, setStatus] = useState('paused')
   const [systemPrompt, setSystemPrompt] = useState('')
 
+  const [isVariablesOpen, setIsVariablesOpen] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [docToDelete, setDocToDelete] = useState<any>(null)
@@ -121,8 +175,17 @@ export default function BotDetail() {
     }
   }
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>,
+  ) => {
+    let file: File | undefined
+    if ('dataTransfer' in e) {
+      file = e.dataTransfer.files?.[0]
+    } else {
+      const input = e.target as HTMLInputElement
+      file = input.files?.[0]
+    }
+
     if (!file) return
 
     const fileExt = file.name.split('.').pop()?.toLowerCase()
@@ -185,51 +248,57 @@ export default function BotDetail() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-[1200px] mx-auto space-y-6">
-        <Skeleton className="h-4 w-32 mb-6" />
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-5 w-48 mb-8" />
+      <div className="p-6 max-w-[1200px] mx-auto">
+        <style>{`
+          @keyframes shimmer {
+            100% { transform: translateX(100%); }
+          }
+          .shimmer-bg {
+            position: relative;
+            overflow: hidden;
+            background-color: hsl(var(--secondary) / 0.3);
+          }
+          .shimmer-bg::after {
+            content: "";
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            transform: translateX(-100%);
+            background-image: linear-gradient(90deg, transparent, hsl(var(--secondary) / 0.5), transparent);
+            animation: shimmer 1.5s infinite;
+          }
+        `}</style>
 
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <div className="flex justify-end">
-              <Skeleton className="h-10 w-40" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mb-6">
+          <button className="text-[13px] text-muted-foreground flex items-center gap-1 mb-4 opacity-50 cursor-default">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar aos bots
+          </button>
+          <div className="shimmer-bg h-8 w-64 rounded mb-2" />
+          <div className="shimmer-bg h-5 w-48 rounded" />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-[300px] w-full" />
-            <Skeleton className="h-12 w-full" />
-            <div className="flex justify-end">
-              <Skeleton className="h-10 w-32" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="p-[24px] bg-card border border-border rounded-md mb-[24px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px] mb-[16px]">
+            <div className="shimmer-bg h-10 rounded-md w-full" />
+            <div className="shimmer-bg h-10 rounded-md w-[100px]" />
+          </div>
+          <div className="grid grid-cols-1 gap-[16px]">
+            <div className="shimmer-bg h-10 rounded-md w-[120px]" />
+            <div className="shimmer-bg h-6 w-48 rounded" />
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-48 w-full" />
-          </CardContent>
-        </Card>
+        <div className="p-[24px] bg-card border border-border rounded-md mb-[24px]">
+          <div className="shimmer-bg h-[320px] rounded-md w-full" />
+        </div>
+
+        <div className="p-[24px] bg-card border border-border rounded-md mb-[24px]">
+          <div className="space-y-[8px]">
+            <div className="shimmer-bg h-[50px] w-full rounded-md" />
+            <div className="shimmer-bg h-[50px] w-full rounded-md" />
+            <div className="shimmer-bg h-[50px] w-full rounded-md" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -246,293 +315,272 @@ export default function BotDetail() {
   }
 
   return (
-    <div className="p-6 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-6 max-w-[1200px] mx-auto">
       <button
         onClick={() => navigate('/admin/bots')}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mb-2"
+        className="text-[13px] text-muted-foreground hover:text-primary flex items-center gap-1 mb-[16px] transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Voltar aos bots
       </button>
 
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Configurar Chatbot</h1>
-        <p className="text-muted-foreground mt-1">
-          Tenant: <span className="font-semibold text-foreground">{config.tenant_name}</span>
-        </p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Configurar Chatbot</h1>
+          <StatusBadge status={config.status} />
+        </div>
+        <p className="text-[14px] text-muted-foreground mt-1">{config.tenant_name}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuração do Bot</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label>Modelo</Label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(modelLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Temperatura ({temperature})</Label>
-              <Input
-                type="number"
-                step="0.1"
-                min="0"
-                max="2"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Max Tokens</Label>
-              <Input
-                type="number"
-                step="128"
-                min="256"
-                max="4096"
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-              />
-            </div>
+      <div className="p-[24px] bg-card border border-border rounded-md mb-[24px]">
+        <h2 className="text-[16px] font-semibold mb-[20px]">Configuração do Bot</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+          <div>
+            <Label className="text-[13px] font-medium text-muted-foreground mb-[4px] block">
+              Modelo
+            </Label>
+            <Select value={model} onValueChange={setModel}>
+              <SelectTrigger className="h-10 text-[14px] border-border rounded-md w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(modelLabels).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/10">
-            <div className="space-y-0.5">
-              <Label className="text-base cursor-pointer" htmlFor="rag-toggle">
-                Habilitar RAG (busca em documentos)
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Permite que o chatbot consulte os documentos enviados antes de responder.
-              </p>
-            </div>
+          <div>
+            <Label className="text-[13px] font-medium text-muted-foreground mb-[4px] block">
+              Temperatura
+            </Label>
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              value={temperature}
+              onChange={(e) => setTemperature(parseFloat(e.target.value))}
+              className="h-10 text-[14px] border-border rounded-md w-[100px]"
+            />
+          </div>
+
+          <div>
+            <Label className="text-[13px] font-medium text-muted-foreground mb-[4px] block">
+              Max Tokens
+            </Label>
+            <Input
+              type="number"
+              step="128"
+              min="256"
+              max="4096"
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+              className="h-10 text-[14px] border-border rounded-md w-[120px]"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
             <Switch id="rag-toggle" checked={ragEnabled} onCheckedChange={setRagEnabled} />
+            <Label htmlFor="rag-toggle" className="text-[14px] cursor-pointer">
+              Habilitar RAG (busca em documentos)
+            </Label>
           </div>
-
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/10">
-            <div className="space-y-0.5">
-              <Label
-                className={`text-base font-semibold cursor-pointer ${status === 'active' ? 'text-success' : 'text-muted-foreground'}`}
-                htmlFor="status-toggle"
-              >
-                {status === 'active' ? 'Bot Ativo' : 'Bot Pausado'}
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Determina se o bot responderá às mensagens dos pacientes.
-              </p>
-            </div>
+          <div className="flex items-center gap-3">
             <Switch
               id="status-toggle"
               checked={status === 'active'}
               onCheckedChange={(c) => setStatus(c ? 'active' : 'paused')}
             />
+            <Label
+              htmlFor="status-toggle"
+              className={cn(
+                'text-[14px] cursor-pointer',
+                status === 'active' ? 'text-success font-semibold' : 'text-muted-foreground',
+              )}
+            >
+              {status === 'active' ? 'Bot Ativo' : 'Bot Pausado'}
+            </Label>
           </div>
+        </div>
 
-          <div className="flex justify-end pt-2">
-            <Button onClick={handleSaveConfig}>Salvar Configurações</Button>
-          </div>
-        </CardContent>
-      </Card>
+        <Button onClick={handleSaveConfig} className="h-10 mt-[24px] px-[24px] font-semibold">
+          Salvar Configurações
+        </Button>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Prompt do Sistema</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            className="min-h-[300px] font-mono text-sm resize-y leading-relaxed bg-secondary/5"
-            placeholder="Digite o prompt do sistema para este chatbot. Exemplo: Você é um assistente virtual da clínica do Dr. Silva. Responda dúvidas sobre horários, especialidades e agendamento."
-          />
-          <div className="text-sm text-muted-foreground font-mono">
-            {systemPrompt.length} caracteres
-          </div>
+      <div className="p-[24px] bg-card border border-border rounded-md mb-[24px]">
+        <h2 className="text-[16px] font-semibold mb-[20px]">Prompt do Sistema</h2>
 
-          <Collapsible className="border rounded-md p-4 bg-secondary/10">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold">Variáveis disponíveis</h4>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-8 h-8 p-0">
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent className="pt-4 flex flex-wrap gap-2">
-              {VARIABLES.map((v) => (
-                <Badge
-                  key={v}
-                  variant="secondary"
-                  className="cursor-pointer font-mono hover:bg-primary/20 transition-colors text-xs"
-                  onClick={() => copyToClipboard(`{{${v}}}`)}
-                >
-                  {v}
-                </Badge>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
+        <Textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          placeholder="Digite o prompt do sistema para este chatbot. Exemplo: Você é um assistente virtual da clínica do Dr. Silva. Responda dúvidas sobre horários, especialidades e agendamento."
+          className="min-h-[320px] font-mono text-[13px] leading-[1.6] p-[16px] border border-border rounded-md bg-input focus:ring-2 focus:ring-ring resize-y placeholder:text-muted-foreground/50"
+        />
+        <div className="text-[12px] text-muted-foreground text-right mt-[4px]">
+          {systemPrompt.length} caracteres
+        </div>
 
-          <div className="flex justify-end pt-2">
-            <Button onClick={handleSavePrompt}>Salvar Prompt</Button>
-          </div>
-        </CardContent>
-      </Card>
+        <Collapsible open={isVariablesOpen} onOpenChange={setIsVariablesOpen} className="mt-[16px]">
+          <CollapsibleTrigger className="flex items-center text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors group">
+            Variáveis disponíveis
+            <ChevronDown
+              className={cn(
+                'ml-1 w-[14px] h-[14px] transition-transform duration-200',
+                isVariablesOpen && 'rotate-180',
+              )}
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-[12px] flex flex-wrap gap-[8px]">
+            {VARIABLES.map((v) => (
+              <button
+                key={v}
+                onClick={() => copyToClipboard(`{{${v}}}`)}
+                className="text-[12px] font-mono px-[10px] py-[4px] rounded-[6px] bg-secondary border border-border cursor-pointer hover:bg-primary/10 hover:border-primary/30 active:scale-95 transition-all duration-150"
+              >
+                {v}
+              </button>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Button
+          variant="outline"
+          onClick={handleSavePrompt}
+          className="h-10 mt-[16px] font-semibold"
+        >
+          Salvar Prompt
+        </Button>
+      </div>
 
       {ragEnabled && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Documentos RAG</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div
-              className="border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center justify-center text-center bg-secondary/5 hover:bg-secondary/20 hover:border-primary/30 transition-all cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <UploadCloud className="w-10 h-10 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-base mb-1">
-                Arraste um arquivo ou clique para enviar
-              </h3>
-              <p className="text-sm text-muted-foreground">Suporta PDF, TXT, DOC, DOCX até 10MB</p>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={handleFileSelect}
-              />
-            </div>
+        <div
+          className="p-[24px] bg-card border border-solid border-border rounded-md mb-[24px] pt-[24px]"
+          style={{ borderTopStyle: 'dashed' }}
+        >
+          <h2 className="text-[16px] font-semibold mb-[20px]">Documentos RAG</h2>
+
+          <div
+            className={cn(
+              'border-2 border-dashed rounded-md p-[40px] text-center transition-colors cursor-pointer',
+              isDragging
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-secondary/5',
+            )}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragging(true)
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragging(false)
+              handleFileSelect(e)
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadCloud className="w-[32px] h-[32px] text-muted-foreground mx-auto" />
+            <p className="text-[14px] text-muted-foreground mt-[8px]">
+              Arraste um arquivo ou clique para enviar
+            </p>
+            <p className="text-[12px] text-muted-foreground/70 mt-[4px]">
+              PDF, TXT, DOC, DOCX até 10MB
+            </p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".pdf,.txt,.doc,.docx"
+              onChange={handleFileSelect}
+            />
 
             {uploading && (
-              <div className="space-y-2 px-2">
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Enviando documento...</span>
-                  <span className="text-muted-foreground">{uploadProgress}%</span>
+              <div className="mt-[16px] max-w-xs mx-auto">
+                <div className="h-[4px] rounded-[2px] bg-secondary overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
                 </div>
-                <Progress value={uploadProgress} className="h-2" />
               </div>
             )}
+          </div>
 
+          <div className="mt-[20px]">
             {documents.length > 0 ? (
-              <div className="border rounded-md overflow-hidden bg-card">
-                <Table>
-                  <TableHeader className="bg-secondary/50">
-                    <TableRow>
-                      <TableHead>Arquivo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Chunks</TableHead>
-                      <TableHead>Enviado em</TableHead>
-                      <TableHead className="w-16"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {documents.map((doc) => {
-                      const ext = doc.file_name.split('.').pop()?.toLowerCase()
-                      const isPdf = ext === 'pdf'
-                      const isTxt = ext === 'txt'
-                      return (
-                        <TableRow key={doc.id} className="hover:bg-secondary/50">
-                          <TableCell className="flex items-center gap-3">
-                            {isPdf ? (
-                              <FileText className="w-5 h-5 text-red-500" />
-                            ) : isTxt ? (
-                              <FileText className="w-5 h-5 text-gray-500" />
-                            ) : (
-                              <File className="w-5 h-5 text-blue-500" />
-                            )}
-                            <span
-                              className="font-medium truncate max-w-[250px]"
-                              title={doc.file_name}
-                            >
-                              {doc.file_name}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                doc.embedding_status === 'ready'
-                                  ? 'default'
-                                  : doc.embedding_status === 'error'
-                                    ? 'destructive'
-                                    : 'secondary'
-                              }
-                              className={
-                                doc.embedding_status === 'ready'
-                                  ? 'bg-success/10 text-success hover:bg-success/20 shadow-none'
-                                  : 'shadow-none'
-                              }
-                            >
-                              {doc.embedding_status === 'pending'
-                                ? 'Pendente'
-                                : doc.embedding_status === 'processing'
-                                  ? 'Processando'
-                                  : doc.embedding_status === 'ready'
-                                    ? 'Pronto'
-                                    : 'Erro'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {doc.embedding_status === 'ready' ? `${doc.chunk_count} chunks` : '-'}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {formatDistanceToNow(new Date(doc.created_at), {
-                              addSuffix: true,
-                              locale: ptBR,
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => setDocToDelete(doc)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
+              documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center p-[12px] px-[16px] border border-border rounded-md mb-[8px]"
+                >
+                  {getFileIcon(doc.file_name)}
+                  <span className="text-[14px] font-medium ml-3 flex-grow truncate">
+                    {doc.file_name}
+                  </span>
+
+                  <EmbeddingStatusBadge status={doc.embedding_status} />
+                  {doc.embedding_status === 'ready' && (
+                    <span className="text-[12px] text-muted-foreground ml-[8px]">
+                      {doc.chunk_count} chunks
+                    </span>
+                  )}
+
+                  <span className="text-[12px] text-muted-foreground ml-4 hidden md:inline-block">
+                    {formatDistanceToNow(new Date(doc.created_at), {
+                      addSuffix: true,
+                      locale: ptBR,
                     })}
-                  </TableBody>
-                </Table>
-              </div>
+                  </span>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-[28px] h-[28px] ml-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                    onClick={() => setDocToDelete(doc)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center border rounded-xl bg-secondary/5">
-                <FileText className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                <h3 className="font-semibold text-lg text-foreground">Nenhum documento</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-1">
+              <div className="p-[32px] text-center">
+                <FileText className="w-[32px] h-[32px] text-muted-foreground mx-auto" />
+                <h3 className="text-[14px] font-medium mt-[8px]">Nenhum documento</h3>
+                <p className="text-[13px] text-muted-foreground mt-[4px]">
                   Envie documentos para que o bot possa consultar durante as conversas.
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       <Dialog open={!!docToDelete} onOpenChange={(o) => !o && setDocToDelete(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[480px] p-6 rounded-md">
           <DialogHeader>
-            <DialogTitle>Excluir documento</DialogTitle>
-            <DialogDescription className="mt-2 text-base text-foreground leading-relaxed">
+            <DialogTitle className="text-[18px] font-semibold">Excluir documento</DialogTitle>
+            <DialogDescription className="text-[14px] leading-[1.6] mt-2">
               Tem certeza que deseja excluir o documento{' '}
               <span className="font-semibold">{docToDelete?.file_name}</span>? Ele não será mais
               usado pelo chatbot.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setDocToDelete(null)}>
+            <Button variant="outline" onClick={() => setDocToDelete(null)} className="h-10">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteDoc}>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteDoc}
+              className="h-10 text-white bg-destructive"
+            >
               Excluir
             </Button>
           </DialogFooter>
