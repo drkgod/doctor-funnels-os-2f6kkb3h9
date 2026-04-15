@@ -6,10 +6,12 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
+import { CalendarDays } from 'lucide-react'
+import { typeMap, statusMap } from './DayView'
+import { cn } from '@/lib/utils'
 
 interface AppointmentDrawerProps {
   appointment: any
@@ -38,90 +40,70 @@ export function AppointmentDrawer({
   const endD = new Date(appointment.datetime_end)
   const isPast = startD < new Date()
 
-  const typeMap: Record<string, string> = {
-    consultation: 'Consulta',
-    return: 'Retorno',
-    procedure: 'Procedimento',
-  }
-  const statusMap: Record<
-    string,
-    { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
-  > = {
-    pending: { label: 'Pendente', variant: 'secondary' },
-    confirmed: { label: 'Confirmado', variant: 'default' },
-    completed: { label: 'Concluído', variant: 'outline' },
-    no_show: { label: 'No-show', variant: 'destructive' },
-    cancelled: { label: 'Cancelado', variant: 'destructive' },
-  }
+  const typeCfg = typeMap[appointment.type as keyof typeof typeMap] || typeMap.consultation
+  const statCfg = statusMap[appointment.status as keyof typeof statusMap] || statusMap.pending
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col border-l">
-        <SheetHeader>
-          <SheetTitle>Detalhes do Agendamento</SheetTitle>
-          <SheetDescription>Informações e ações rápidas</SheetDescription>
+      <SheetContent className="w-full sm:max-w-[400px] p-6 flex flex-col border-l">
+        <SheetHeader className="sr-only">
+          <SheetTitle>Detalhes</SheetTitle>
+          <SheetDescription>Detalhes do agendamento</SheetDescription>
         </SheetHeader>
-        <div className="flex-1 py-6 space-y-6 overflow-y-auto">
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-1">Paciente</h4>
-            <Link
-              to={`/crm/patients/${appointment.patient_id}`}
-              className="text-lg font-semibold hover:underline text-primary"
+
+        <div className="flex-1 overflow-y-auto pr-2">
+          <Link
+            to={`/crm/patients/${appointment.patient_id}`}
+            className="text-[20px] font-bold text-primary hover:underline"
+          >
+            {appointment.patient_name}
+          </Link>
+
+          <div className="flex items-center gap-1.5 text-[14px] text-muted-foreground mt-2">
+            <CalendarDays className="w-[14px] h-[14px]" />
+            {format(startD, "dd/MM/yyyy 'das' HH:mm", { locale: ptBR })} às {format(endD, 'HH:mm')}
+          </div>
+
+          <div className="flex gap-2 mt-3">
+            <span
+              className={cn(
+                'text-[10px] px-[6px] py-[1px] rounded-full border border-transparent',
+                typeCfg.class,
+              )}
             >
-              {appointment.patient_name}
-            </Link>
-            {appointment.patient_phone && (
-              <p className="text-sm text-muted-foreground mt-1">{appointment.patient_phone}</p>
-            )}
+              {typeCfg.label}
+            </span>
+            <span className={cn('text-[10px] px-[6px] py-[1px] rounded-full', statCfg.class)}>
+              {statCfg.label}
+            </span>
           </div>
 
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-1">Data e Hora</h4>
-            <p className="text-sm font-medium">
-              {format(startD, "dd/MM/yyyy 'das' HH:mm", { locale: ptBR })} às{' '}
-              {format(endD, 'HH:mm')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Tipo</h4>
-              <Badge variant="outline">{typeMap[appointment.type] || appointment.type}</Badge>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Status</h4>
-              <Badge variant={statusMap[appointment.status]?.variant || 'outline'}>
-                {statusMap[appointment.status]?.label || appointment.status}
-              </Badge>
-            </div>
-          </div>
-
-          {appointment.notes && (
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
-              <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md">
+          <div className="mt-5">
+            <h4 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Observações
+            </h4>
+            {appointment.notes ? (
+              <div className="text-[14px] leading-[1.6] bg-secondary/30 p-[12px_16px] rounded-md whitespace-pre-wrap">
                 {appointment.notes}
-              </p>
-            </div>
-          )}
-
-          <div className="text-xs text-muted-foreground pt-4">
-            Criado em: {format(new Date(appointment.created_at), 'dd/MM/yyyy HH:mm')}
+              </div>
+            ) : (
+              <div className="text-[14px] italic text-muted-foreground">Sem observações</div>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 pt-4 border-t mt-auto">
+        <div className="flex flex-col gap-2 mt-6 pt-5 border-t border-border">
           {appointment.status === 'pending' && (
-            <Button onClick={onConfirm} className="w-full">
+            <Button
+              onClick={onConfirm}
+              variant="outline"
+              className="h-10 text-[13px] font-medium border-success text-success hover:bg-success/10 w-full"
+            >
               Confirmar
             </Button>
           )}
           {appointment.status === 'confirmed' && isPast && (
-            <Button
-              onClick={onComplete}
-              variant="outline"
-              className="w-full bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
-            >
+            <Button onClick={onComplete} className="h-10 text-[13px] font-medium w-full">
               Concluir
             </Button>
           )}
@@ -129,13 +111,17 @@ export function AppointmentDrawer({
             <Button
               onClick={onNoShow}
               variant="outline"
-              className="w-full text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800"
+              className="h-10 text-[13px] font-medium border-amber-500 text-amber-600 hover:bg-amber-500/10 w-full"
             >
               No-show
             </Button>
           )}
 
-          <Button variant="secondary" onClick={onEdit} className="w-full">
+          <Button
+            variant="outline"
+            onClick={onEdit}
+            className="h-10 text-[13px] font-medium w-full"
+          >
             Editar
           </Button>
 
@@ -144,9 +130,9 @@ export function AppointmentDrawer({
             onClick={() => {
               if (confirm('Tem certeza que deseja cancelar este agendamento?')) onCancel()
             }}
-            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="h-10 text-[13px] font-medium text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
           >
-            Cancelar Agendamento
+            Cancelar
           </Button>
         </div>
       </SheetContent>

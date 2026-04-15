@@ -10,6 +10,9 @@ import {
 } from 'date-fns'
 import { Appointment } from '@/services/appointmentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import { typeMap } from './DayView'
 
 interface MonthViewProps {
   currentDate: Date
@@ -18,6 +21,8 @@ interface MonthViewProps {
 }
 
 export function MonthView({ currentDate, appointments, onDayClick }: MonthViewProps) {
+  const isMobile = useIsMobile()
+
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -30,33 +35,20 @@ export function MonthView({ currentDate, appointments, onDayClick }: MonthViewPr
     day = addDays(day, 1)
   }
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'consultation':
-        return 'bg-blue-500'
-      case 'return':
-        return 'bg-green-500'
-      case 'procedure':
-        return 'bg-amber-500'
-      default:
-        return 'bg-primary'
-    }
-  }
-
   return (
-    <div className="h-full border rounded-md bg-card flex flex-col">
-      <div className="grid grid-cols-7 border-b bg-muted/20">
+    <div className="bg-card border border-border rounded-md overflow-hidden h-full flex flex-col">
+      <div className="grid grid-cols-7 bg-secondary border-b border-border">
         {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
           <div
             key={d}
-            className="p-2 text-center text-xs font-semibold text-muted-foreground uppercase"
+            className="p-[10px] text-center text-[11px] font-semibold text-muted-foreground uppercase"
           >
             {d}
           </div>
         ))}
       </div>
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-7 auto-rows-[minmax(100px,1fr)] h-full min-h-[500px]">
+        <div className="grid grid-cols-7 auto-rows-[minmax(60px,1fr)] md:auto-rows-[minmax(100px,1fr)] h-full">
           {days.map((d) => {
             const isCurrentMonth = isSameMonth(d, currentDate)
             const isToday = isSameDay(d, new Date())
@@ -66,33 +58,66 @@ export function MonthView({ currentDate, appointments, onDayClick }: MonthViewPr
               <div
                 key={d.toISOString()}
                 onClick={() => onDayClick(d)}
-                className={`border-r border-b p-2 cursor-pointer transition-colors hover:bg-muted/10 flex flex-col
-                  ${!isCurrentMonth ? 'bg-muted/5 opacity-50' : ''}
-                  ${isToday ? 'bg-primary/5' : ''}
-                `}
+                className={cn(
+                  'p-[8px] border-b border-border border-r border-border/50 hover:bg-secondary/30 cursor-pointer transition-colors flex flex-col',
+                  !isCurrentMonth && 'opacity-30',
+                  isCurrentMonth && d < new Date() && !isToday && 'opacity-50',
+                )}
               >
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-end md:justify-start">
                   <span
-                    className={`text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : ''}`}
+                    className={cn(
+                      'text-[13px] font-medium flex items-center justify-center',
+                      isToday &&
+                        'w-[28px] h-[28px] bg-primary text-primary-foreground rounded-full',
+                    )}
                   >
                     {format(d, 'd')}
                   </span>
-                  {dayApps.length > 0 && (
-                    <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 rounded">
-                      {dayApps.length}
-                    </span>
-                  )}
                 </div>
-                <div className="flex flex-wrap gap-1 mt-auto">
-                  {dayApps.slice(0, 5).map((app) => (
-                    <div
-                      key={app.id}
-                      className={`w-2 h-2 rounded-full ${getTypeColor(app.type)}`}
-                      title={app.patient_name}
-                    />
-                  ))}
-                  {dayApps.length > 5 && (
-                    <span className="text-[10px] text-muted-foreground">+{dayApps.length - 5}</span>
+
+                <div className="mt-1 flex-1 flex flex-col gap-1 overflow-hidden">
+                  {isMobile ? (
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {dayApps.slice(0, 4).map((app) => {
+                          const typeCfg =
+                            typeMap[app.type as keyof typeof typeMap] || typeMap.consultation
+                          return (
+                            <div
+                              key={app.id}
+                              className={cn('w-1.5 h-1.5 rounded-full', typeCfg.dot)}
+                            />
+                          )
+                        })}
+                      </div>
+                      {dayApps.length > 0 && (
+                        <div className="text-[10px] text-muted-foreground font-medium">
+                          {dayApps.length} agen.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {dayApps.slice(0, 3).map((app) => {
+                        const typeCfg =
+                          typeMap[app.type as keyof typeof typeMap] || typeMap.consultation
+                        return (
+                          <div
+                            key={app.id}
+                            className="flex items-center gap-1.5 text-[11px] truncate"
+                          >
+                            <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', typeCfg.dot)} />
+                            <span className="truncate">{app.patient_name}</span>
+                          </div>
+                        )
+                      })}
+                      {dayApps.length > 3 && (
+                        <div className="text-[11px] text-muted-foreground font-medium mt-auto">
+                          +{dayApps.length - 3} mais
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

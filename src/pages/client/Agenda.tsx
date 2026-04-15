@@ -21,8 +21,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { DayView } from '@/components/agenda/DayView'
 import { WeekView } from '@/components/agenda/WeekView'
 import { MonthView } from '@/components/agenda/MonthView'
@@ -30,6 +29,7 @@ import { AppointmentDialog } from '@/components/agenda/AppointmentDialog'
 import { AppointmentDrawer } from '@/components/agenda/AppointmentDrawer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 export default function Agenda() {
   const { tenant } = useTenant()
@@ -181,44 +181,52 @@ export default function Agenda() {
   return (
     <ModuleGate module_key="agenda">
       <div className="flex flex-col h-[calc(100vh-100px)]">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
-          <h1 className="text-2xl font-bold">Agenda</h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center justify-between md:justify-start gap-3">
+            <div className="flex border border-border rounded-md overflow-hidden">
+              {['day', 'week', 'month'].map((v) => (
+                <button
+                  key={v}
+                  className={cn(
+                    'px-[14px] py-2 text-[13px] transition-colors',
+                    view === v
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary',
+                  )}
+                  onClick={() => setView(v as any)}
+                >
+                  {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
+                </button>
+              ))}
+            </div>
+            <Button variant="outline" className="h-9 text-[13px] px-[14px]" onClick={handleToday}>
+              Hoje
+            </Button>
+          </div>
 
-          <div className="flex items-center gap-2 md:gap-4 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-            <ToggleGroup
-              type="single"
-              value={view}
-              onValueChange={(v) => v && setView(v as any)}
-              className="bg-card border rounded-md"
-            >
-              <ToggleGroupItem value="day" className="px-3 text-sm">
-                Dia
-              </ToggleGroupItem>
-              <ToggleGroupItem value="week" className="px-3 text-sm">
-                Semana
-              </ToggleGroupItem>
-              <ToggleGroupItem value="month" className="px-3 text-sm">
-                Mês
-              </ToggleGroupItem>
-            </ToggleGroup>
-
-            <div className="flex items-center bg-card border rounded-md p-1 shrink-0">
-              <Button variant="ghost" size="icon" onClick={handlePrev} className="h-8 w-8">
+          <div className="flex items-center justify-between md:justify-end gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                className="h-9 w-9 rounded-md p-0 hover:bg-secondary"
+                onClick={handlePrev}
+              >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" className="h-8 min-w-[140px] font-medium" onClick={() => {}}>
+              <span className="text-[15px] font-semibold cursor-pointer hover:text-primary transition-colors select-none text-center min-w-[140px]">
                 {getHeaderTitle()}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleNext} className="h-8 w-8">
+              </span>
+              <Button
+                variant="ghost"
+                className="h-9 w-9 rounded-md p-0 hover:bg-secondary"
+                onClick={handleNext}
+              >
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
 
-            <Button variant="outline" className="shrink-0" onClick={handleToday}>
-              Hoje
-            </Button>
             <Button
-              className="shrink-0"
+              className="h-10 font-semibold px-4"
               onClick={() => {
                 setSlotDate(new Date())
                 setSlotTime(null)
@@ -226,34 +234,17 @@ export default function Agenda() {
                 setDialogOpen(true)
               }}
             >
-              <Plus className="w-4 h-4 mr-2" /> Novo Agendamento
+              <Plus className="w-4 h-4 mr-2" /> <span>Novo Agendamento</span>
             </Button>
           </div>
         </div>
 
-        {!loading && appointments.length === 0 && view !== 'day' && (
-          <div className="mb-4 p-4 border rounded-md bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <p className="font-medium">Nenhum agendamento</p>
-              <p className="text-sm text-muted-foreground">
-                Sua agenda está livre. Crie um agendamento para começar.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSlotDate(new Date())
-                setDialogOpen(true)
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Novo Agendamento
-            </Button>
-          </div>
-        )}
-
         <div className="flex-1 overflow-hidden">
           {loading ? (
-            <Skeleton className="w-full h-full rounded-md" />
+            <div className="w-full h-full flex gap-6">
+              <Skeleton className="flex-1 rounded-md" />
+              {view === 'day' && <Skeleton className="w-[300px] hidden lg:block rounded-md" />}
+            </div>
           ) : (
             <>
               {view === 'day' && (
@@ -317,25 +308,25 @@ export default function Agenda() {
           }}
           onConfirm={async () => {
             await appointmentService.updateAppointment(selectedApp.id, { status: 'confirmed' })
-            toast({ title: 'Sucesso', description: 'Confirmado' })
+            toast({ title: 'Sucesso', description: 'Confirmado com sucesso.' })
             loadData()
             setDrawerOpen(false)
           }}
           onComplete={async () => {
             await appointmentService.completeAppointment(selectedApp.id)
-            toast({ title: 'Sucesso', description: 'Concluído' })
+            toast({ title: 'Sucesso', description: 'Concluído com sucesso.' })
             loadData()
             setDrawerOpen(false)
           }}
           onNoShow={async () => {
             await appointmentService.markNoShow(selectedApp.id)
-            toast({ title: 'Sucesso', description: 'No-show registrado' })
+            toast({ title: 'Sucesso', description: 'No-show registrado com sucesso.' })
             loadData()
             setDrawerOpen(false)
           }}
           onCancel={async () => {
             await appointmentService.cancelAppointment(selectedApp.id)
-            toast({ title: 'Sucesso', description: 'Cancelado' })
+            toast({ title: 'Sucesso', description: 'Cancelado com sucesso.' })
             loadData()
             setDrawerOpen(false)
           }}
