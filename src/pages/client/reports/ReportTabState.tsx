@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { BarChart3, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -23,7 +23,21 @@ export function ReportTabState({
   hasChart = true,
   hasFunnel = false,
 }: ReportTabStateProps) {
-  if (loading) {
+  const [timeoutReached, setTimeoutReached] = useState(false)
+
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setTimeoutReached(true), 5000)
+      return () => clearTimeout(timer)
+    } else {
+      setTimeoutReached(false)
+    }
+  }, [loading])
+
+  const isLoading = loading && !timeoutReached
+  const isEmpty = empty || (loading && timeoutReached)
+
+  if (isLoading) {
     return (
       <div className="animate-in fade-in duration-500">
         <style>{`
@@ -70,7 +84,7 @@ export function ReportTabState({
     )
   }
 
-  if (empty) {
+  if (isEmpty) {
     return (
       <div className="flex flex-col items-center justify-center pt-[60px] pb-10">
         <BarChart3 className="w-12 h-12 text-muted-foreground/40" />

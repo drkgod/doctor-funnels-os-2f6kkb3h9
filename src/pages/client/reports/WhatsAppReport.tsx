@@ -22,7 +22,10 @@ export function WhatsAppReport({
   const [error, setError] = useState(false)
 
   const load = async () => {
-    if (!tenantId) return
+    if (!tenantId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(false)
     try {
