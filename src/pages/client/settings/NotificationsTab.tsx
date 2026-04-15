@@ -54,7 +54,9 @@ export function NotificationsTab() {
     if (stored) {
       try {
         setPrefs(JSON.parse(stored))
-      } catch (e) {}
+      } catch (e) {
+        /* ignore parse error */
+      }
     }
   }, [])
 

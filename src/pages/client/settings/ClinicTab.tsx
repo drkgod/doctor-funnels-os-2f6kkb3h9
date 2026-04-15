@@ -36,6 +36,14 @@ export function ClinicTab({
   profile: any
   onUpdate: (data: any) => void
 }) {
+  const { toast } = useToast()
+
+  const [clinicName, setClinicName] = useState(tenant?.name || '')
+  const [address, setAddress] = useState(tenant?.address || '')
+  const [phone, setPhone] = useState(tenant?.phone || '')
+  const [hours, setHours] = useState<any>(tenant?.business_hours || defaultHours)
+  const [isSaving, setIsSaving] = useState(false)
+
   if (!tenant) {
     return (
       <Card>
@@ -44,14 +52,7 @@ export function ClinicTab({
     )
   }
 
-  const { toast } = useToast()
-  const isDoctor = profile.role === 'doctor' || profile.role === 'super_admin'
-
-  const [clinicName, setClinicName] = useState(tenant.name || '')
-  const [address, setAddress] = useState(tenant.address || '')
-  const [phone, setPhone] = useState(tenant.phone || '')
-  const [hours, setHours] = useState<any>(tenant.business_hours || defaultHours)
-  const [isSaving, setIsSaving] = useState(false)
+  const isDoctor = profile?.role === 'doctor' || profile?.role === 'super_admin'
 
   const updateHour = (day: string, field: string, value: any) => {
     setHours((prev: any) => ({
