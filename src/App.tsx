@@ -29,6 +29,7 @@ const Logs = lazy(() => import('./pages/admin/Logs'))
 // Lazy Loading Client Routes
 const ClientDashboard = lazy(() => import('./pages/client/ClientDashboard'))
 const CRM = lazy(() => import('./pages/client/CRM'))
+const PatientDetail = lazy(() => import('./pages/client/PatientDetail'))
 const Agenda = lazy(() => import('./pages/client/Agenda'))
 const Whatsapp = lazy(() => import('./pages/client/Whatsapp'))
 const Email = lazy(() => import('./pages/client/Email'))
@@ -84,6 +85,7 @@ const App = () => (
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<ClientDashboard />} />
                   <Route path="/crm" element={<CRM />} />
+                  <Route path="/crm/patients/:id" element={<PatientDetail />} />
                   <Route path="/agenda" element={<Agenda />} />
                   <Route path="/whatsapp" element={<Whatsapp />} />
                   <Route path="/email" element={<Email />} />
