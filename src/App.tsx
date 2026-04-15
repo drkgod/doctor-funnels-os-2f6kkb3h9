@@ -20,6 +20,7 @@ const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 // Lazy Loading Admin Routes
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const Tenants = lazy(() => import('./pages/admin/Tenants'))
+const TenantDetail = lazy(() => import('./pages/admin/TenantDetail'))
 const Bots = lazy(() => import('./pages/admin/Bots'))
 const Integrations = lazy(() => import('./pages/admin/Integrations'))
 const Logs = lazy(() => import('./pages/admin/Logs'))
@@ -70,6 +71,7 @@ const App = () => (
                   <Route path="/admin">
                     <Route index element={<AdminDashboard />} />
                     <Route path="tenants" element={<Tenants />} />
+                    <Route path="tenants/:id" element={<TenantDetail />} />
                     <Route path="bots" element={<Bots />} />
                     <Route path="integrations" element={<Integrations />} />
                     <Route path="logs" element={<Logs />} />
