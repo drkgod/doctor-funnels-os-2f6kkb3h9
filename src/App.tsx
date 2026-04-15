@@ -4,9 +4,10 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { RoleProvider } from '@/contexts/RoleContext'
+import { AuthProvider } from '@/hooks/use-auth'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import AppLayout from '@/components/AppLayout'
+import { ProtectedRoute, AdminRoute } from '@/components/ProtectedRoute'
 
 // Direct Imports
 import Index from './pages/Index'
@@ -36,7 +37,7 @@ const Settings = lazy(() => import('./pages/client/Settings'))
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider defaultTheme="dark">
-      <RoleProvider defaultRole="super_admin">
+      <AuthProvider>
         <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
           <TooltipProvider>
             <Toaster />
@@ -65,23 +66,27 @@ const App = () => (
                 <Route path="/" element={<Index />} />
 
                 {/* Admin Area */}
-                <Route path="/admin">
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="tenants" element={<Tenants />} />
-                  <Route path="bots" element={<Bots />} />
-                  <Route path="integrations" element={<Integrations />} />
-                  <Route path="logs" element={<Logs />} />
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin">
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="tenants" element={<Tenants />} />
+                    <Route path="bots" element={<Bots />} />
+                    <Route path="integrations" element={<Integrations />} />
+                    <Route path="logs" element={<Logs />} />
+                  </Route>
                 </Route>
 
                 {/* Client Area */}
-                <Route path="/dashboard" element={<ClientDashboard />} />
-                <Route path="/crm" element={<CRM />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/whatsapp" element={<Whatsapp />} />
-                <Route path="/email" element={<Email />} />
-                <Route path="/automations" element={<Automations />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/dashboard" element={<ClientDashboard />} />
+                  <Route path="/crm" element={<CRM />} />
+                  <Route path="/agenda" element={<Agenda />} />
+                  <Route path="/whatsapp" element={<Whatsapp />} />
+                  <Route path="/email" element={<Email />} />
+                  <Route path="/automations" element={<Automations />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
               </Route>
 
               {/* Fallback */}
@@ -89,7 +94,7 @@ const App = () => (
             </Routes>
           </TooltipProvider>
         </BrowserRouter>
-      </RoleProvider>
+      </AuthProvider>
     </ThemeProvider>
   </ErrorBoundary>
 )

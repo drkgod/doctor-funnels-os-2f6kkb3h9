@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { useRole } from '@/hooks/use-role'
+import { useAuthContext } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -40,8 +40,8 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ onItemClick }: SidebarNavProps) {
-  const { role } = useRole()
-  const links = role === 'super_admin' ? ADMIN_LINKS : CLIENT_LINKS
+  const { isAdmin } = useAuthContext()
+  const links = isAdmin ? ADMIN_LINKS : CLIENT_LINKS
 
   return (
     <div className="flex flex-col h-full bg-card">

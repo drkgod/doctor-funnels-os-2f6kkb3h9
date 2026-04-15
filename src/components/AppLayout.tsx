@@ -1,19 +1,12 @@
 import { Suspense, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useTheme } from '@/hooks/use-theme'
-import { useRole, Role } from '@/hooks/use-role'
+import { useAuthContext } from '@/hooks/use-auth'
 import { SidebarNav } from './SidebarNav'
 import { LoadingScreen } from './LoadingScreen'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +15,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Menu, Moon, Sun, User, LogOut } from 'lucide-react'
+import { Menu, Moon, Sun, Settings, LogOut } from 'lucide-react'
 
 export default function AppLayout() {
   const { theme, setTheme } = useTheme()
-  const { role, setRole } = useRole()
+  const { profile, signOut } = useAuthContext()
+  const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login')
+  }
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'DF'
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case 'super_admin':
+        return 'Administrador'
+      case 'doctor':
+        return 'Medico'
+      case 'secretary':
+        return 'Secretaria'
+      default:
+        return 'Usuario'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -60,17 +81,6 @@ export default function AppLayout() {
         </div>
 
         <div className="flex items-center gap-3 md:gap-4">
-          <Select value={role} onValueChange={(val: Role) => setRole(val)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs font-medium">
-              <SelectValue placeholder="Selecione o papel" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="super_admin">Super Admin</SelectItem>
-              <SelectItem value="doctor">Médico</SelectItem>
-              <SelectItem value="secretary">Secretária</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Button
             variant="ghost"
             size="icon"
@@ -89,7 +99,7 @@ export default function AppLayout() {
               >
                 <Avatar className="h-9 w-9 border border-border">
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                    RS
+                    {getInitials(profile?.full_name)}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -97,18 +107,23 @@ export default function AppLayout() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">Rafael Silva</p>
+                  <p className="text-sm font-medium leading-none">
+                    {profile?.full_name || 'Usuário'}
+                  </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    rafael@doctorfunnels.com
+                    {getRoleLabel(profile?.role)}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                <span>Perfil</span>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configuracoes</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                className="cursor-pointer text-destructive focus:text-destructive"
+                onClick={handleSignOut}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sair</span>
               </DropdownMenuItem>
