@@ -229,13 +229,17 @@ export async function fetchDailyTrend(
     eachDayOfInterval({ start: parseISO(date_from), end: parseISO(date_to) }).forEach(
       (d) => (counts[format(d, 'yyyy-MM-dd')] = 0),
     )
-  } catch (e) {}
+  } catch (e) {
+    /* ignore */
+  }
 
   data.forEach((row) => {
     try {
       const d = format(parseISO(row[dateField]), 'yyyy-MM-dd')
       if (counts[d] !== undefined) counts[d]++
-    } catch (e) {}
+    } catch (e) {
+      /* ignore */
+    }
   })
   return Object.entries(counts)
     .map(([date, count]) => ({ date, count }))
@@ -265,7 +269,9 @@ export function exportReportCSV(report_name: string, data: any[]) {
         else if (['date', 'created_at', 'datetime_start'].includes(h)) {
           try {
             val = format(parseISO(val), 'dd/MM/yyyy')
-          } catch (e) {}
+          } catch (e) {
+            /* ignore */
+          }
         }
         return `"${val}"`
       })
