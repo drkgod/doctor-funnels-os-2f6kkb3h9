@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Trash2,
   Activity,
+  User,
 } from 'lucide-react'
 import { medicalRecordService } from '@/services/medicalRecordService'
 import { specialtyTemplateService } from '@/services/specialtyTemplateService'
@@ -1313,305 +1314,267 @@ export default function ProntuarioDetail() {
           </TabsContent>
 
           <TabsContent value="transcricao" className="mt-0 outline-none">
+            <style>{`
+              @keyframes pulse-recording {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.4); opacity: 0.6; }
+              }
+              @keyframes waveform {
+                0%, 100% { height: 8px; }
+                25% { height: 32px; }
+                50% { height: 16px; }
+                75% { height: 48px; }
+              }
+              @keyframes progress-indeterminate {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+              @keyframes bubble-entrance {
+                0% { opacity: 0; transform: translateY(8px); }
+                100% { opacity: 1; transform: translateY(0); }
+              }
+              @keyframes spin-slow {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              .animate-pulse-recording {
+                animation: pulse-recording 1.5s infinite ease-in-out;
+              }
+              .animate-waveform {
+                animation: waveform 1.2s infinite ease-in-out;
+              }
+              .animate-progress {
+                animation: progress-indeterminate 2s infinite ease-in-out;
+              }
+              .animate-bubble {
+                animation: bubble-entrance 200ms ease-out forwards;
+                opacity: 0;
+              }
+              .animate-spin-slow {
+                animation: spin-slow 2s linear infinite;
+              }
+            `}</style>
+
             {isLoadingTranscription ? (
               <div className="flex flex-col items-center justify-center py-20 space-y-4">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Carregando dados da transcricao...</p>
               </div>
             ) : processingStep > 0 ? (
-              <div className="p-8 max-w-md mx-auto w-full space-y-6">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold">Processando Consulta</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Isso pode levar de 30 segundos a 2 minutos.
-                  </p>
+              <div className="flex flex-col items-center justify-center p-[20px] md:p-[32px] max-w-[400px] mx-auto w-full">
+                <div className="flex flex-col w-full gap-[16px]">
+                  {[
+                    { step: 1, label: 'Enviando audio...', icon: Upload },
+                    { step: 2, label: 'Transcrevendo com IA...', icon: AudioLines },
+                    { step: 3, label: 'Preenchendo prontuario...', icon: FileText },
+                  ].map((s) => {
+                    const isCompleted = processingStep > s.step
+                    const isActive = processingStep === s.step
+                    const isPending = processingStep < s.step
+                    const Icon = s.icon
+                    return (
+                      <div key={s.step} className="flex items-center gap-[12px]">
+                        <div
+                          className={cn(
+                            'w-[32px] h-[32px] rounded-full flex-shrink-0 flex items-center justify-center transition-colors duration-300',
+                            isPending && 'bg-secondary',
+                            isActive && 'bg-primary/12',
+                            isCompleted && 'bg-[hsl(152,68%,40%)]/12',
+                          )}
+                        >
+                          {isCompleted ? (
+                            <Check className="w-[16px] h-[16px] text-[hsl(152,68%,40%)]" />
+                          ) : isActive ? (
+                            <Loader2 className="w-[16px] h-[16px] text-primary animate-spin-slow" />
+                          ) : (
+                            <Icon className="w-[16px] h-[16px] text-muted-foreground" />
+                          )}
+                        </div>
+                        <span
+                          className={cn(
+                            'text-[14px] transition-colors duration-300',
+                            isActive ? 'text-foreground font-medium' : 'text-muted-foreground',
+                          )}
+                        >
+                          {s.label}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
-                        processingStep >= 1 ? 'bg-primary text-primary-foreground' : 'bg-secondary',
-                      )}
-                    >
-                      {processingStep > 1 ? (
-                        <Check className="w-4 h-4" />
-                      ) : processingStep === 1 ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-sm font-medium transition-colors',
-                        processingStep >= 1 ? 'text-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      Enviando audio...
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
-                        processingStep >= 2 ? 'bg-primary text-primary-foreground' : 'bg-secondary',
-                      )}
-                    >
-                      {processingStep > 2 ? (
-                        <Check className="w-4 h-4" />
-                      ) : processingStep === 2 ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <AudioLines className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-sm font-medium transition-colors',
-                        processingStep >= 2 ? 'text-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      Transcrevendo com IA...
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
-                        processingStep >= 3 ? 'bg-primary text-primary-foreground' : 'bg-secondary',
-                      )}
-                    >
-                      {processingStep > 3 ? (
-                        <Check className="w-4 h-4" />
-                      ) : processingStep === 3 ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <FileText className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-sm font-medium transition-colors',
-                        processingStep >= 3 ? 'text-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      Preenchendo prontuario...
-                    </span>
-                  </div>
+                <p className="text-[12px] text-muted-foreground text-center mt-[20px]">
+                  Isso pode levar de 30 segundos a 2 minutos.
+                </p>
+                <div className="w-full h-[4px] rounded-[2px] bg-secondary mt-[12px] overflow-hidden relative">
+                  <div className="absolute top-0 bottom-0 left-0 w-full bg-primary rounded-[2px] animate-progress" />
                 </div>
-              </div>
-            ) : processingStep === 0 && (isRecording || isPaused || audioBlob) ? (
-              <div className="p-8 bg-secondary/10 border-2 border-border/50 rounded-lg flex flex-col items-center justify-center text-center">
-                <div className="flex items-end justify-center h-20 gap-1 mb-6 w-full max-w-[200px] overflow-hidden">
-                  {Array.from({ length: 20 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-2 bg-primary rounded-t-sm transition-all duration-75"
-                      style={{
-                        height:
-                          isRecording && !isPaused
-                            ? `${Math.max(10, Math.random() * audioLevel + 10)}%`
-                            : '10%',
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2 mb-6">
-                  {isRecording && !isPaused && (
-                    <div className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
-                  )}
-                  <span className="text-3xl font-mono tabular-nums">
-                    {formatDuration(recordDuration)}
-                  </span>
-                </div>
-
-                {!audioBlob ? (
-                  <div className="flex items-center gap-4">
-                    {isPaused ? (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="w-12 h-12 rounded-full"
-                        onClick={resumeRecording}
-                      >
-                        <Play className="w-5 h-5 ml-1" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="w-12 h-12 rounded-full"
-                        onClick={pauseRecording}
-                      >
-                        <Pause className="w-5 h-5" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="w-12 h-12 rounded-full"
-                      onClick={stopRecording}
-                    >
-                      <Square className="w-5 h-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-4 w-full max-w-xs">
-                    <div className="flex items-center justify-center gap-2 text-[15px] font-medium text-primary bg-primary/10 w-full py-2.5 rounded-md">
-                      <CheckCircle className="w-5 h-5" /> Gravacao concluida
-                    </div>
-                    <div className="flex gap-3 w-full">
-                      <Button className="flex-1" onClick={handleProcessRecording}>
-                        <Sparkles className="w-4 h-4 mr-2" /> Processar com IA
-                      </Button>
-                      <Button variant="outline" onClick={resetRecording}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Descartar
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : transcriptionData ? (
               transcriptionData.status === 'completed' ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      Transcricao da Consulta
-                      <span className="text-xs font-normal px-2 py-0.5 bg-secondary rounded-full">
-                        {formatDuration(transcriptionData.duration_seconds || 0)}
-                      </span>
-                    </h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (
-                          confirm(
-                            'Gravar uma nova consulta apagara esta transcricao e reescrevera os dados do prontuario. Deseja continuar?',
-                          )
-                        ) {
-                          setTranscriptionData(null)
-                          resetRecording()
-                        }
-                      }}
-                    >
-                      <Mic className="w-4 h-4 mr-2" /> Nova Gravacao
-                    </Button>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-[8px] mb-[16px]">
+                    <h3 className="text-[14px] font-semibold">Transcricao da Consulta</h3>
+                    <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-[8px] py-[2px] rounded-full">
+                      {formatDuration(transcriptionData.duration_seconds || 0)}
+                    </span>
                   </div>
 
                   {transcriptionData.speaker_segments &&
                   transcriptionData.speaker_segments.length > 0 ? (
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+                    <div className="flex flex-col max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                       {transcriptionData.speaker_segments.map((seg: any, idx: number) => {
                         const isDoctor = seg.speaker === 0
                         return (
                           <div
                             key={idx}
                             className={cn(
-                              'flex flex-col max-w-[85%]',
-                              isDoctor ? 'mr-auto' : 'ml-auto items-end',
+                              'flex flex-col animate-bubble w-full md:max-w-[85%] mb-[8px]',
+                              isDoctor
+                                ? 'mr-0 md:mr-[48px] self-start'
+                                : 'ml-0 md:ml-[48px] self-end',
                             )}
+                            style={{ animationDelay: `${idx * 50}ms` }}
                           >
-                            <span className="text-[11px] text-muted-foreground mb-1 ml-1 flex items-center gap-1">
-                              {isDoctor ? 'Medico' : 'Paciente'} •{' '}
-                              {formatDuration(Math.floor(seg.start || 0))}
-                            </span>
                             <div
                               className={cn(
-                                'p-3 rounded-2xl text-[14px] leading-relaxed',
+                                'p-[10px] px-[14px]',
                                 isDoctor
-                                  ? 'bg-primary/10 text-foreground rounded-tl-sm'
-                                  : 'bg-secondary text-foreground rounded-tr-sm',
+                                  ? 'bg-primary/5 rounded-[12px_12px_12px_2px]'
+                                  : 'bg-secondary/50 rounded-[12px_12px_2px_12px]',
                               )}
                             >
-                              {seg.text}
+                              <div
+                                className={cn(
+                                  'flex items-center gap-[4px] text-[10px] font-bold uppercase tracking-[0.5px] mb-[4px]',
+                                  isDoctor ? 'text-primary' : 'text-muted-foreground',
+                                )}
+                              >
+                                {isDoctor ? (
+                                  <Stethoscope className="w-[10px] h-[10px]" />
+                                ) : (
+                                  <User className="w-[10px] h-[10px]" />
+                                )}
+                                {isDoctor ? 'Medico' : 'Paciente'}
+                              </div>
+                              <div className="text-[13px] leading-[1.6] text-foreground">
+                                {seg.text}
+                              </div>
+                              <div
+                                className={cn(
+                                  'text-[10px] text-muted-foreground mt-[4px]',
+                                  isDoctor ? 'text-right' : 'text-left',
+                                )}
+                              >
+                                {formatDuration(Math.floor(seg.start || 0))}
+                              </div>
                             </div>
                           </div>
                         )
                       })}
                     </div>
                   ) : (
-                    <div className="p-4 bg-secondary/30 rounded-md text-sm">
+                    <div className="p-4 bg-secondary/30 rounded-md text-sm text-center text-muted-foreground">
                       Nenhum dialogo identificado.
                     </div>
                   )}
 
-                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-md">
-                    <h4 className="font-medium text-[14px] mb-2 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Resumo IA
+                  <div className="mt-[24px] p-[16px] bg-secondary/20 rounded-[var(--radius)] flex flex-col">
+                    <h4 className="flex items-center gap-[6px] text-[13px] font-semibold mb-[12px]">
+                      <Sparkles className="w-[14px] h-[14px] text-primary" /> Resumo da IA
                     </h4>
-                    <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
-                      {transcriptionData.processed_text || 'Nenhum resumo gerado.'}
-                    </p>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => setActiveTab('anamnese')}
-                      >
-                        Anamnese
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => setActiveTab('exame')}
-                      >
-                        Exame Fisico
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => setActiveTab('avaliacao')}
-                      >
-                        Avaliacao
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => setActiveTab('conduta')}
-                      >
-                        Conduta
-                      </Button>
-                      {hasSpecialtyTab && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="text-xs h-7"
-                          onClick={() => setActiveTab('especialidade')}
-                        >
-                          Especialidade
-                        </Button>
-                      )}
+                    <div className="flex flex-col md:flex-row gap-[8px] md:gap-[24px] flex-wrap">
+                      <div className="flex items-center gap-[6px] text-[13px] text-muted-foreground">
+                        <Clock className="w-[14px] h-[14px]" />
+                        Duracao:{' '}
+                        <span className="font-semibold text-foreground">
+                          {formatDuration(transcriptionData.duration_seconds || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-[6px] text-[13px] text-muted-foreground">
+                        <AudioLines className="w-[14px] h-[14px]" />
+                        Interacoes:{' '}
+                        <span className="font-semibold text-foreground">
+                          {transcriptionData.speaker_segments?.length || 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-[6px] text-[13px] text-muted-foreground">
+                        <Activity className="w-[14px] h-[14px]" />
+                        Processamento IA:{' '}
+                        <span className="font-semibold text-foreground">
+                          {transcriptionData.processed_text ? 'Concluido' : 'Nao realizado'}
+                        </span>
+                      </div>
                     </div>
+
+                    {transcriptionData.sections_updated &&
+                      transcriptionData.sections_updated.length > 0 && (
+                        <div className="mt-[12px] flex flex-col gap-[6px]">
+                          <span className="text-[12px] font-semibold text-muted-foreground">
+                            Campos preenchidos:
+                          </span>
+                          <div className="flex flex-wrap gap-[6px]">
+                            {transcriptionData.sections_updated.map((sec: string) => {
+                              const labels: Record<string, string> = {
+                                subjective: 'Anamnese',
+                                objective: 'Exame Fisico',
+                                assessment: 'Avaliacao',
+                                plan: 'Conduta',
+                                specialty_fields: 'Especialidade',
+                              }
+                              const tabTarget: Record<string, string> = {
+                                subjective: 'anamnese',
+                                objective: 'exame',
+                                assessment: 'avaliacao',
+                                plan: 'conduta',
+                                specialty_fields: 'especialidade',
+                              }
+                              return (
+                                <button
+                                  key={sec}
+                                  onClick={() => setActiveTab(tabTarget[sec] || 'anamnese')}
+                                  className="flex items-center gap-[4px] text-[11px] font-medium px-[8px] py-[3px] bg-primary/[0.08] text-primary rounded-full cursor-pointer hover:bg-primary/[0.15] transition-colors duration-150"
+                                >
+                                  <Sparkles className="w-[10px] h-[10px]" />
+                                  {labels[sec] || sec}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                   </div>
+
+                  <button
+                    className="mt-[16px] text-[12px] font-medium text-primary self-start hover:bg-primary/10 h-[44px] md:h-[38px] px-[16px] rounded-md transition-colors flex items-center"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          'Gravar uma nova consulta apagara esta transcricao e reescrevera os dados do prontuario. Deseja continuar?',
+                        )
+                      ) {
+                        setTranscriptionData(null)
+                        resetRecording()
+                      }
+                    }}
+                  >
+                    <Mic className="w-[12px] h-[12px] mr-[6px]" /> Gravar Nova Consulta
+                  </button>
                 </div>
               ) : transcriptionData.status === 'failed' ? (
-                <div className="flex flex-col items-center justify-center p-10 bg-destructive/10 rounded-lg border border-destructive/20 text-center">
-                  <AlertCircle className="w-10 h-10 text-destructive mb-4" />
-                  <h3 className="text-[15px] font-medium text-destructive mb-2">
-                    Falha na Transcricao
-                  </h3>
-                  <p className="text-[13px] text-destructive/80 mb-6 max-w-sm">
+                <div className="flex flex-col items-center justify-center p-[20px] md:p-[32px]">
+                  <AlertCircle className="w-[40px] h-[40px] text-destructive/50" />
+                  <h3 className="text-[15px] font-medium mt-[12px]">Falha na Transcricao</h3>
+                  <p className="text-[13px] text-muted-foreground mt-[4px] max-w-[360px] text-center">
                     {transcriptionData.error_message ||
                       'Ocorreu um erro ao processar o audio. Tente gravar novamente.'}
                   </p>
                   <Button
                     variant="outline"
-                    className="border-destructive/30 hover:bg-destructive/20"
+                    className="mt-[20px] h-[44px] md:h-[38px]"
                     onClick={() => setTranscriptionData(null)}
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" /> Tentar Novamente
+                    <RotateCcw className="w-[16px] h-[16px] mr-[8px]" /> Tentar Novamente
                   </Button>
                 </div>
               ) : (
@@ -1620,33 +1583,144 @@ export default function ProntuarioDetail() {
                   <p className="text-sm text-muted-foreground">Transcricao em processamento...</p>
                 </div>
               )
-            ) : (
-              <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-secondary/10">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                  <Mic className="w-8 h-8 text-primary" />
+            ) : processingStep === 0 && (isRecording || isPaused || audioBlob) ? (
+              !audioBlob ? (
+                <div className="flex flex-col items-center justify-center p-[20px] md:p-[32px]">
+                  <div className="flex items-center gap-[8px]">
+                    <div className="w-[12px] h-[12px] rounded-full bg-[hsl(0,84%,60%)] animate-pulse-recording" />
+                    <span className="text-[14px] font-semibold text-[hsl(0,84%,60%)]">
+                      {isPaused ? 'Pausado' : 'Gravando'}
+                    </span>
+                  </div>
+
+                  <div className="mt-[16px] text-[36px] md:text-[48px] font-light text-foreground tabular-nums tracking-tight">
+                    {formatDuration(recordDuration)}
+                  </div>
+
+                  <div className="mt-[24px] flex items-center justify-center gap-[2px] h-[48px] overflow-hidden w-full max-w-[160px]">
+                    {Array.from({
+                      length: typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 20,
+                    }).map((_, i) => {
+                      const delay = i * 60
+                      // Map audioLevel (0-100) to scale amplitude, smoothing it out
+                      const scale = isRecording && !isPaused ? Math.max(0.2, audioLevel / 100) : 1
+
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center justify-center w-[3px] h-[48px]"
+                          style={{
+                            transform: isRecording && !isPaused ? `scaleY(${scale})` : 'scaleY(1)',
+                            transition: 'transform 100ms ease',
+                          }}
+                        >
+                          <div
+                            className={cn(
+                              'w-full rounded-[2px]',
+                              isRecording && !isPaused
+                                ? 'bg-primary animate-waveform'
+                                : 'bg-muted-foreground h-[12px]',
+                            )}
+                            style={{
+                              animationDelay: `${delay}ms`,
+                              height: isRecording && !isPaused ? '8px' : '12px',
+                            }}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="mt-[32px] flex items-center justify-center gap-[12px]">
+                    {isPaused ? (
+                      <button
+                        onClick={resumeRecording}
+                        className="w-[48px] h-[48px] rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/70 transition-colors"
+                      >
+                        <Play className="w-[20px] h-[20px] text-foreground ml-[2px]" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={pauseRecording}
+                        className="w-[48px] h-[48px] rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/70 transition-colors"
+                      >
+                        <Pause className="w-[20px] h-[20px] text-foreground" />
+                      </button>
+                    )}
+                    <button
+                      onClick={stopRecording}
+                      className="w-[48px] md:w-[56px] h-[48px] md:h-[56px] rounded-full bg-[hsl(0,84%,60%)] flex items-center justify-center hover:bg-[hsl(0,84%,55%)] active:scale-95 transition-all"
+                    >
+                      <Square className="w-[20px] h-[20px] text-white" />
+                    </button>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium mb-2">Gravar Consulta</h3>
-                <p className="text-[14px] text-muted-foreground max-w-md mb-8">
-                  Grave a conversa e a IA preenche o prontuario automaticamente. A IA identifica
-                  medico e paciente e gera os campos SOAP.
+              ) : (
+                <div className="flex flex-col items-center justify-center p-[20px] md:p-[32px]">
+                  <CheckCircle className="w-[48px] h-[48px] text-[hsl(152,68%,40%)]" />
+                  <h3 className="mt-[16px] text-[16px] font-semibold text-foreground">
+                    Gravacao concluida
+                  </h3>
+                  <p className="mt-[4px] text-[14px] text-muted-foreground">
+                    Duracao: {formatDuration(recordDuration)}
+                  </p>
+
+                  <div className="mt-[24px] flex flex-col md:flex-row gap-[12px] w-full md:w-auto">
+                    <Button
+                      className="h-[44px] px-[24px] bg-primary text-[14px] font-semibold w-full md:w-auto rounded-full hover:bg-primary/90 transition-colors"
+                      onClick={handleProcessRecording}
+                    >
+                      <Sparkles className="w-[16px] h-[16px] mr-[6px]" /> Processar com IA
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-[44px] text-[13px] text-muted-foreground w-full md:w-auto rounded-full hover:border-destructive hover:text-destructive transition-colors"
+                      onClick={resetRecording}
+                    >
+                      <Trash2 className="w-[14px] h-[14px] mr-[4px]" /> Descartar
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center p-[20px] md:p-[48px]">
+                <div className="w-[80px] h-[80px] rounded-full bg-primary/[0.08] flex items-center justify-center">
+                  <Mic className="w-[32px] h-[32px] text-primary" />
+                </div>
+                <h3 className="mt-[20px] text-[18px] font-semibold text-foreground">
+                  Gravar Consulta
+                </h3>
+                <p className="mt-[8px] text-[14px] text-muted-foreground text-center max-w-[400px] leading-[1.5]">
+                  Grave a conversa e a IA preenche o prontuario automaticamente.
+                </p>
+                <p className="mt-[4px] text-[12px] text-muted-foreground/60">
+                  A IA identifica medico e paciente e gera os campos SOAP.
                 </p>
 
                 {recordError && (
-                  <div className="flex flex-col items-center gap-3 mb-6 bg-destructive/10 p-4 rounded-md border border-destructive/20">
-                    <div className="flex items-center gap-2 text-destructive text-sm font-medium">
-                      <AlertCircle className="w-4 h-4" />
+                  <div className="mt-[16px] flex flex-col items-center gap-[12px] bg-destructive/10 p-[12px] rounded-[8px] border border-destructive/20 w-full max-w-[400px]">
+                    <div className="flex items-center gap-[8px] text-destructive text-[13px] font-medium text-center">
+                      <AlertCircle className="w-[16px] h-[16px] flex-shrink-0" />
                       {recordError}
                     </div>
-                    <Button variant="outline" size="sm" onClick={resetRecording} className="h-8">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={resetRecording}
+                      className="h-[36px] bg-transparent border-destructive/30 hover:bg-destructive/10 text-destructive"
+                    >
                       Tentar Novamente
                     </Button>
                   </div>
                 )}
 
                 {!recordError && (
-                  <Button size="lg" className="h-12 px-8" onClick={startRecording}>
-                    <Mic className="w-5 h-5 mr-2" /> Iniciar Gravacao
-                  </Button>
+                  <button
+                    className="mt-[24px] h-[44px] md:h-[48px] px-[32px] rounded-full bg-primary text-primary-foreground text-[15px] font-semibold flex items-center justify-center gap-[8px] hover:bg-primary/90 active:scale-95 transition-all duration-150"
+                    onClick={startRecording}
+                  >
+                    <Mic className="w-[18px] h-[18px]" /> Iniciar Gravacao
+                  </button>
                 )}
               </div>
             )}
