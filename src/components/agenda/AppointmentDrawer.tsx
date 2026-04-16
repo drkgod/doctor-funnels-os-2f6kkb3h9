@@ -52,12 +52,16 @@ export function AppointmentDrawer({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
-          <Link
-            to={`/crm/patients/${appointment.patient_id}`}
-            className="text-[20px] font-bold text-primary hover:underline"
-          >
-            {appointment.patient_name}
-          </Link>
+          {appointment.type === 'google_calendar' ? (
+            <div className="text-[20px] font-bold text-foreground">{appointment.patient_name}</div>
+          ) : (
+            <Link
+              to={`/crm/patients/${appointment.patient_id}`}
+              className="text-[20px] font-bold text-primary hover:underline"
+            >
+              {appointment.patient_name}
+            </Link>
+          )}
 
           <div className="flex items-center gap-1.5 text-[14px] text-muted-foreground mt-2">
             <CalendarDays className="w-[14px] h-[14px]" />
@@ -93,7 +97,12 @@ export function AppointmentDrawer({
         </div>
 
         <div className="flex flex-col gap-2 mt-6 pt-5 border-t border-border">
-          {appointment.status === 'pending' && (
+          {appointment.type === 'google_calendar' && (
+            <div className="text-[13px] text-muted-foreground text-center mb-2">
+              Eventos do Google Calendar devem ser editados diretamente no Google.
+            </div>
+          )}
+          {appointment.type !== 'google_calendar' && appointment.status === 'pending' && (
             <Button
               onClick={onConfirm}
               variant="outline"
@@ -102,38 +111,46 @@ export function AppointmentDrawer({
               Confirmar
             </Button>
           )}
-          {appointment.status === 'confirmed' && isPast && (
-            <Button onClick={onComplete} className="h-10 text-[13px] font-medium w-full">
-              Concluir
-            </Button>
-          )}
-          {(appointment.status === 'confirmed' || appointment.status === 'pending') && isPast && (
-            <Button
-              onClick={onNoShow}
-              variant="outline"
-              className="h-10 text-[13px] font-medium border-amber-500 text-amber-600 hover:bg-amber-500/10 w-full"
-            >
-              No-show
-            </Button>
-          )}
+          {appointment.type !== 'google_calendar' &&
+            appointment.status === 'confirmed' &&
+            isPast && (
+              <Button onClick={onComplete} className="h-10 text-[13px] font-medium w-full">
+                Concluir
+              </Button>
+            )}
+          {appointment.type !== 'google_calendar' &&
+            (appointment.status === 'confirmed' || appointment.status === 'pending') &&
+            isPast && (
+              <Button
+                onClick={onNoShow}
+                variant="outline"
+                className="h-10 text-[13px] font-medium border-amber-500 text-amber-600 hover:bg-amber-500/10 w-full"
+              >
+                No-show
+              </Button>
+            )}
 
-          <Button
-            variant="outline"
-            onClick={onEdit}
-            className="h-10 text-[13px] font-medium w-full"
-          >
-            Editar
-          </Button>
+          {appointment.type !== 'google_calendar' && (
+            <>
+              <Button
+                variant="outline"
+                onClick={onEdit}
+                className="h-10 text-[13px] font-medium w-full"
+              >
+                Editar
+              </Button>
 
-          <Button
-            variant="ghost"
-            onClick={() => {
-              if (confirm('Tem certeza que deseja cancelar este agendamento?')) onCancel()
-            }}
-            className="h-10 text-[13px] font-medium text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
-          >
-            Cancelar
-          </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (confirm('Tem certeza que deseja cancelar este agendamento?')) onCancel()
+                }}
+                className="h-10 text-[13px] font-medium text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
+              >
+                Cancelar
+              </Button>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

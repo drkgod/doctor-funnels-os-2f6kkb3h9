@@ -2,7 +2,7 @@ import { format, isSameDay } from 'date-fns'
 import { Appointment } from '@/services/appointmentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, CalendarDays } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,11 @@ export const typeMap = {
     label: 'Consulta',
     class: 'bg-primary/15 border-primary text-primary',
     dot: 'bg-primary',
+  },
+  google_calendar: {
+    label: 'Google Calendar',
+    class: 'bg-muted/30 border-dashed border-muted-foreground/50 text-muted-foreground',
+    dot: 'bg-muted-foreground',
   },
   return: {
     label: 'Retorno',
@@ -126,7 +131,10 @@ export function DayView({
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {format(startD, 'HH:mm')} - {format(endD, 'HH:mm')}
                   </div>
-                  <div className="text-[10px] font-medium mt-1 uppercase tracking-wide">
+                  <div className="text-[10px] font-medium mt-1 uppercase tracking-wide flex items-center gap-1">
+                    {app.type === 'google_calendar' && (
+                      <CalendarDays className="w-3 h-3 shrink-0" />
+                    )}
                     {typeCfg.label}
                   </div>
                 </div>

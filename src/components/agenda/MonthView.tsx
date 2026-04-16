@@ -11,6 +11,7 @@ import {
 import { Appointment } from '@/services/appointmentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { typeMap } from './DayView'
 
@@ -109,6 +110,9 @@ export function MonthView({ currentDate, appointments, onDayClick }: MonthViewPr
                           >
                             <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', typeCfg.dot)} />
                             <span className="truncate">{app.patient_name}</span>
+                            {app.type === 'google_calendar' && (
+                              <CalendarDays className="w-3 h-3 ml-auto text-muted-foreground opacity-50 shrink-0" />
+                            )}
                           </div>
                         )
                       })}
