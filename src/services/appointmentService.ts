@@ -1,7 +1,163 @@
 import { supabase } from '@/lib/supabase/client'
 import { toast } from '@/hooks/use-toast'
 
+export type Appointment = {
+  id: string
+  tenant_id: string
+  patient_id: string
+  doctor_id: string | null
+  datetime_start: string
+  datetime_end: string
+  type: string
+  status: string
+  google_event_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  patient_name?: string
+}
+
 export const appointmentService = {
+  async fetchAppointments(tenantId: string, from: string, to: string): Promise<Appointment[]> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*, patients(full_name)')
+      .eq('tenant_id', tenantId)
+      .gte('datetime_start', from)
+      .lte('datetime_start', to)
+      .order('datetime_start', { ascending: true })
+
+    if (error) throw error
+
+    return (data || []).map((item: any) => ({
+      ...item,
+      patient_name: item.patients?.full_name,
+    }))
+  },
+
+  async createAppointment(
+    tenantId: string,
+    data: {
+      patient_id: string
+      doctor_id?: string | null
+      datetime_start: string
+      datetime_end: string
+      type: string
+      status?: string
+      notes?: string | null
+    },
+  ) {
+    const payload = {
+      tenant_id: tenantId,
+      patient_id: data.patient_id,
+      doctor_id: data.doctor_id || null,
+      datetime_start: data.datetime_start,
+      datetime_end: data.datetime_end,
+      type: data.type,
+      status: data.status || 'pending',
+      notes: data.notes || null,
+    }
+
+    const { data: created, error } = await supabase
+      .from('appointments')
+      .insert(payload)
+      .select('*, patients(full_name)')
+      .single()
+
+    if (error) throw error
+
+    const appointment = {
+      ...created,
+      patient_name: created.patients?.full_name,
+    } as Appointment
+
+    try {
+      if (appointment.id) {
+        await appointmentService.syncAppointmentToGoogleCalendar(tenantId, {
+          patient_name: appointment.patient_name || 'Paciente',
+          datetime_start: appointment.datetime_start,
+          datetime_end: appointment.datetime_end,
+          notes: appointment.notes || undefined,
+          appointmentId: appointment.id,
+        })
+      }
+    } catch (e) {
+      // silent
+    }
+
+    return appointment
+  },
+
+  async updateAppointment(appointmentId: string, data: Partial<Appointment>) {
+    const { data: original, error: fetchError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', appointmentId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    const { patient_name, patients, ...updateData } = data as any
+
+    const { data: updated, error } = await supabase
+      .from('appointments')
+      .update(updateData)
+      .eq('id', appointmentId)
+      .select('*, patients(full_name)')
+      .single()
+
+    if (error) throw error
+
+    try {
+      if (original.google_event_id && (data.datetime_start || data.datetime_end)) {
+        await appointmentService.updateGoogleCalendarEvent(original.google_event_id, {
+          start_datetime: data.datetime_start || original.datetime_start,
+          end_datetime: data.datetime_end || original.datetime_end,
+          description: data.notes !== undefined ? data.notes : original.notes,
+        })
+      }
+    } catch (e) {
+      // silent
+    }
+
+    return {
+      ...updated,
+      patient_name: updated.patients?.full_name,
+    } as Appointment
+  },
+
+  async completeAppointment(appointmentId: string) {
+    return appointmentService.updateAppointment(appointmentId, { status: 'completed' })
+  },
+
+  async markNoShow(appointmentId: string) {
+    return appointmentService.updateAppointment(appointmentId, { status: 'no_show' })
+  },
+
+  async cancelAppointment(appointmentId: string) {
+    const { data: original, error: fetchError } = await supabase
+      .from('appointments')
+      .select('google_event_id')
+      .eq('id', appointmentId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    const updated = await appointmentService.updateAppointment(appointmentId, {
+      status: 'cancelled',
+    })
+
+    try {
+      if (original.google_event_id) {
+        await appointmentService.deleteGoogleCalendarEvent(original.google_event_id)
+      }
+    } catch (e) {
+      // silent
+    }
+
+    return updated
+  },
+
   async syncAppointmentToGoogleCalendar(
     tenantId: string,
     appointmentData: {
