@@ -27,6 +27,7 @@ import {
   Activity,
   User,
   Eye,
+  Copy,
 } from 'lucide-react'
 import { medicalRecordService } from '@/services/medicalRecordService'
 import { specialtyTemplateService } from '@/services/specialtyTemplateService'
@@ -978,19 +979,35 @@ export default function ProntuarioDetail() {
       </div>
 
       {isReadOnly && (
-        <div className="p-3.5 px-5 bg-[#8b31ff]/8 border border-[#8b31ff]/20 rounded-md mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-[#8b31ff]">
-          <div className="flex items-center">
-            <ShieldCheck className="h-5 w-5 mr-2 flex-shrink-0" />
-            <span className="text-[13px] font-medium">
-              Assinado digitalmente em {format(new Date(record.signed_at), 'dd/MM/yyyy HH:mm')} por
-              Dr(a). {record.signature_name || doctor?.full_name}.
-              {signatureData?.verification_code && (
-                <span className="block md:inline md:ml-1 text-[#8b31ff]/80">
-                  Codigo de verificacao:{' '}
-                  <span className="font-mono">{signatureData.verification_code}</span>
-                </span>
-              )}
+        <div className="px-5 py-3.5 bg-[hsl(270,60%,50%)]/5 border border-[hsl(270,60%,50%)]/15 rounded-md mb-5 flex items-center gap-3">
+          <ShieldCheck className="h-5 w-5 text-[hsl(270,60%,50%)] flex-shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-[13px] font-semibold text-[hsl(270,60%,50%)]">
+              Prontuario assinado digitalmente
             </span>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+              <span>
+                {format(new Date(record.signed_at), 'dd/MM/yyyy')} as{' '}
+                {format(new Date(record.signed_at), 'HH:mm')}
+              </span>
+              {signatureData?.verification_code && (
+                <>
+                  <span className="opacity-50">•</span>
+                  <span className="font-mono">{signatureData.verification_code}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 ml-1 hover:bg-secondary/50"
+                    onClick={() => {
+                      navigator.clipboard.writeText(signatureData.verification_code)
+                      toast({ title: 'Codigo copiado.' })
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2003,12 +2020,10 @@ export default function ProntuarioDetail() {
             </Button>
           )}
           {record.status === 'signed' && (
-            <Button
-              variant="outline"
-              className="h-[38px] flex-1 md:flex-none text-[#8b31ff] border-[#8b31ff]/30 bg-[#8b31ff]/5 pointer-events-none"
-            >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Assinado
-            </Button>
+            <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[hsl(270,60%,50%)]/10 rounded-full">
+              <ShieldCheck className="w-3.5 h-3.5 text-[hsl(270,60%,50%)]" />
+              <span className="text-[12px] font-semibold text-[hsl(270,60%,50%)]">Assinado</span>
+            </div>
           )}
         </div>
       </div>

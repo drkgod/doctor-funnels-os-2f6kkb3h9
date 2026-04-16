@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldCheck, Search, FileText, AlertCircle, Loader2 } from 'lucide-react'
+import { ShieldCheck, Loader2, XCircle } from 'lucide-react'
 import { signatureService } from '@/services/signatureService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,7 @@ export default function VerifySignature() {
       if (res && res.valid) {
         setResult(res)
       } else {
-        setError('Codigo nao encontrado ou invalido.')
+        setError('O codigo informado nao corresponde a nenhum prontuario assinado.')
       }
     } catch (err: any) {
       setError('Ocorreu um erro ao verificar o codigo.')
@@ -34,89 +34,93 @@ export default function VerifySignature() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center pt-20 px-4">
-      <div className="w-full max-w-md text-center mb-8">
-        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-          <ShieldCheck className="w-8 h-8 text-primary" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 md:p-10">
+      <div className="w-full max-w-[480px] mx-auto">
+        <h1 className="text-[18px] font-bold text-center mb-8 text-foreground">Doctor Funnels</h1>
+
+        <div className="bg-card border rounded-[var(--radius)] p-6 md:p-8 shadow-[0_4px_16px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <ShieldCheck className="w-6 h-6 text-primary" />
+            <h2 className="text-[20px] font-bold text-center text-foreground">
+              Verificar Documento
+            </h2>
+          </div>
+
+          <p className="text-[14px] text-muted-foreground text-center mb-6">
+            Insira o codigo de verificacao para confirmar a autenticidade do documento.
+          </p>
+
+          <form onSubmit={handleVerify} className="flex flex-col gap-4">
+            <Input
+              placeholder="SIG-XXXXXXXX-XXXX-XXXX"
+              className="h-11 text-[15px] text-center font-mono tracking-[1px] uppercase placeholder:tracking-normal placeholder:normal-case"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              disabled={loading}
+            />
+            <Button
+              type="submit"
+              className="w-full h-11 font-semibold"
+              disabled={!code.trim() || loading}
+            >
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Verificar
+            </Button>
+          </form>
+
+          {error && (
+            <div className="mt-6 p-5 bg-[hsl(0,84%,60%)]/5 border border-[hsl(0,84%,60%)]/15 rounded-[var(--radius)] animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-center mb-3">
+                <XCircle className="w-8 h-8 text-[hsl(0,84%,60%)]" />
+              </div>
+              <h3 className="text-[16px] font-bold text-[hsl(0,84%,60%)] text-center mb-3">
+                Documento nao encontrado
+              </h3>
+              <p className="text-[13px] text-center text-muted-foreground leading-relaxed">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {result && (
+            <div className="mt-6 p-5 bg-[hsl(152,68%,40%)]/5 border border-[hsl(152,68%,40%)]/15 rounded-[var(--radius)] animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-center mb-3">
+                <ShieldCheck className="w-8 h-8 text-[hsl(152,68%,40%)]" />
+              </div>
+              <h3 className="text-[16px] font-bold text-[hsl(152,68%,40%)] text-center mb-4">
+                Documento Verificado
+              </h3>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between py-2 border-b border-border/30">
+                  <span className="text-[12px] text-muted-foreground">Profissional</span>
+                  <span className="text-[13px] font-medium text-foreground">
+                    Dr(a). {result.doctor_name}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-border/30">
+                  <span className="text-[12px] text-muted-foreground">Especialidade</span>
+                  <span className="text-[13px] font-medium text-foreground">
+                    {result.specialty}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-border/30">
+                  <span className="text-[12px] text-muted-foreground">Tipo de Documento</span>
+                  <span className="text-[13px] font-medium text-foreground">
+                    Prontuario Medico (
+                    {result.record_type === 'consultation' ? 'Consulta' : result.record_type})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-[12px] text-muted-foreground">Data da Assinatura</span>
+                  <span className="text-[13px] font-medium text-foreground">
+                    {format(new Date(result.signed_at), "dd/MM/yyyy 'as' HH:mm")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">
-          Verificar Prontuario Medico
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Insira o codigo de verificacao para confirmar a autenticidade do documento.
-        </p>
-      </div>
-
-      <div className="w-full max-w-md bg-card border shadow-sm rounded-xl p-6">
-        <form onSubmit={handleVerify} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">Codigo de Verificacao</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Ex: SIG-A1B2C3D4-E5F6-G7H8"
-                className="pl-9 font-mono"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-              />
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={!code.trim() || loading}>
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Verificar Documento
-          </Button>
-        </form>
-
-        {error && (
-          <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-semibold text-destructive">Falha na Verificacao</h3>
-              <p className="text-sm text-destructive/80 mt-1">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {result && (
-          <div className="mt-6 p-5 bg-[#20b26c]/10 border border-[#20b26c]/20 rounded-lg">
-            <div className="flex items-center gap-2 mb-4 text-[#20b26c]">
-              <ShieldCheck className="w-5 h-5" />
-              <h3 className="font-semibold">Documento Verificado</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Profissional
-                </div>
-                <div className="text-sm font-medium text-foreground">
-                  Dr(a). {result.doctor_name}
-                </div>
-                <div className="text-sm text-muted-foreground">{result.specialty}</div>
-              </div>
-
-              <div className="pt-3 border-t border-[#20b26c]/20">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Documento
-                </div>
-                <div className="text-sm font-medium text-foreground flex items-center gap-1.5 mt-1">
-                  <FileText className="w-3.5 h-3.5" />
-                  Prontuario Medico (
-                  {result.record_type === 'consultation' ? 'Consulta' : result.record_type})
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#20b26c]/20">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Data da Assinatura
-                </div>
-                <div className="text-sm font-medium text-foreground mt-1">
-                  {format(new Date(result.signed_at), "dd/MM/yyyy 'as' HH:mm")}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
