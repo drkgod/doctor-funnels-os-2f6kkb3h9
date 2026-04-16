@@ -100,6 +100,17 @@ export default function TenantDetail() {
   const [editData, setEditData] = useState<any>({})
   const [newInt, setNewInt] = useState({ provider: 'resend', key: '' })
   const [userSearch, setUserSearch] = useState('')
+
+  useEffect(() => {
+    if (intOpen && data) {
+      const existing = data.apiKeys.map((k: any) => k.provider)
+      if (!existing.includes('resend')) {
+        setNewInt((prev) => ({ ...prev, provider: 'resend', key: '' }))
+      } else if (!existing.includes('google_calendar')) {
+        setNewInt((prev) => ({ ...prev, provider: 'google_calendar', key: '' }))
+      }
+    }
+  }, [intOpen, data])
   const [unassigned, setUnassigned] = useState<any[]>([])
 
   const [activeTab, setActiveTab] = useState('Modulos')
@@ -181,6 +192,11 @@ export default function TenantDetail() {
   const { tenant, modules, apiKeys, users } = data
   const wappKey = apiKeys.find((k: any) => k.provider === 'uazapi')
   const otherKeys = apiKeys.filter((k: any) => k.provider !== 'uazapi')
+
+  const existingProviders = apiKeys.map((k: any) => k.provider)
+  const canAddResend = !existingProviders.includes('resend')
+  const canAddGoogle = !existingProviders.includes('google_calendar')
+  const allConfigured = !canAddResend && !canAddGoogle
 
   const handleUpdate = async () => {
     try {
@@ -425,14 +441,16 @@ export default function TenantDetail() {
 
       {activeTab === 'Integracoes' && (
         <div className="animate-fade-in">
-          <div className="mb-4 flex justify-end">
-            <button
-              onClick={() => setIntOpen(true)}
-              className="h-9 px-4 bg-primary text-primary-foreground text-[14px] font-medium rounded-[var(--radius)] hover:bg-primary/90 transition-colors"
-            >
-              Adicionar Integração
-            </button>
-          </div>
+          {!allConfigured && (
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setIntOpen(true)}
+                className="h-9 px-4 bg-primary text-primary-foreground text-[14px] font-medium rounded-[var(--radius)] hover:bg-primary/90 transition-colors"
+              >
+                Adicionar Integração
+              </button>
+            </div>
+          )}
           {otherKeys.length === 0 ? (
             <div className="p-8 text-center border border-border rounded-[var(--radius)] bg-card border-dashed">
               <p className="text-muted-foreground text-[14px]">Nenhuma integração configurada.</p>
@@ -473,6 +491,13 @@ export default function TenantDetail() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {allConfigured && (
+            <div className="mt-4 text-center">
+              <p className="text-[13px] text-muted-foreground">
+                Todas as integrações estão configuradas
+              </p>
             </div>
           )}
         </div>
@@ -649,8 +674,18 @@ export default function TenantDetail() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-[var(--radius)]">
-                  <SelectItem value="resend">Resend</SelectItem>
-                  <SelectItem value="google_calendar">Google Calendar</SelectItem>
+                  <SelectItem value="resend" disabled={!canAddResend}>
+                    Resend{' '}
+                    {!canAddResend && (
+                      <span className="text-muted-foreground"> (já configurado)</span>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="google_calendar" disabled={!canAddGoogle}>
+                    Google Calendar{' '}
+                    {!canAddGoogle && (
+                      <span className="text-muted-foreground"> (já configurado)</span>
+                    )}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -677,9 +712,10 @@ export default function TenantDetail() {
                   await tenantService.addApiKey(id!, newInt.provider, newInt.key)
                   toast.success('Adicionada')
                   setIntOpen(false)
+                  setNewInt({ provider: 'resend', key: '' })
                   loadData()
-                } catch (e) {
-                  toast.error('Erro')
+                } catch (e: any) {
+                  toast.error(e.message || 'Erro')
                 }
               }}
               className="h-10 px-4 rounded-[var(--radius)] bg-primary text-primary-foreground text-[14px] font-medium hover:bg-primary/90 transition-colors"

@@ -74,7 +74,29 @@ export default function Integrations() {
         fetchAllIntegrations(),
       ])
       setStats(statsData)
-      setIntegrations(listData)
+
+      const grouped = new Map<string, any[]>()
+      for (const i of listData) {
+        const key = `${i.tenant_id}_${i.provider}`
+        if (!grouped.has(key)) grouped.set(key, [])
+        grouped.get(key)!.push(i)
+      }
+
+      const processedList = []
+      for (const [key, items] of grouped.entries()) {
+        items.sort(
+          (a, b) =>
+            new Date(b.created_at || b.updated_at).getTime() -
+            new Date(a.created_at || a.updated_at).getTime(),
+        )
+        const mainItem = items[0]
+        if (items.length > 1) {
+          mainItem.isDuplicate = true
+        }
+        processedList.push(mainItem)
+      }
+
+      setIntegrations(processedList)
     } catch {
       setError(true)
     } finally {
@@ -328,6 +350,11 @@ export default function Integrations() {
                           : item.provider === 'resend'
                             ? 'Resend (Email)'
                             : 'Google Calendar'}
+                        {item.isDuplicate && (
+                          <Badge className="ml-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 text-[10px] px-1.5 py-0 border-transparent h-4">
+                            Duplicada
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-[13px]">

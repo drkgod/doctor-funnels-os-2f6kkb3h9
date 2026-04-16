@@ -100,6 +100,19 @@ export const tenantService = {
   },
 
   async addApiKey(tenant_id: string, provider: string, key: string, metadata: any = {}) {
+    const { data: existing } = await supabase
+      .from('tenant_api_keys')
+      .select('id')
+      .eq('tenant_id', tenant_id)
+      .eq('provider', provider)
+      .maybeSingle()
+
+    if (existing) {
+      throw new Error(
+        `Ja existe uma integracao ${provider} para este tenant. Remova a existente antes de adicionar uma nova.`,
+      )
+    }
+
     const { data: session } = await supabase.auth.getSession()
     const { data, error } = await supabase.functions.invoke('encrypt-api-key', {
       body: { key_value: key },
