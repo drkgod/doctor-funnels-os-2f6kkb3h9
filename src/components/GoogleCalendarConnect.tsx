@@ -1,183 +1,193 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { CalendarDays, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
+import { useSearchParams } from 'react-router-dom'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '@/hooks/use-toast'
-import { CalendarDays, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { startOfMonth, endOfMonth } from 'date-fns'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function GoogleCalendarConnect() {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [searchParams] = useSearchParams()
+
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [connectedEmail, setConnectedEmail] = useState('')
   const [connectedAt, setConnectedAt] = useState('')
-  const [searchParams] = useSearchParams()
-  const { toast } = useToast()
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false)
+
+  useEffect(() => {
+    checkStatus()
+
+    const gcal = searchParams.get('gcal')
+    const emailParam = searchParams.get('email')
+    const reason = searchParams.get('reason')
+
+    if (gcal === 'success') {
+      toast({
+        variant: 'default',
+        description: `Google Calendar conectado com sucesso! ${emailParam || ''}`,
+      })
+      window.history.replaceState({}, '', window.location.pathname)
+      checkStatus()
+    } else if (gcal === 'error') {
+      let errorMsg = 'Erro ao conectar. Tente novamente.'
+      if (reason === 'missing_code') errorMsg = 'Autorizacao cancelada. Tente novamente.'
+      if (reason === 'invalid_state') errorMsg = 'Erro de validacao. Tente novamente.'
+      if (reason === 'token_exchange_failed') errorMsg = 'Erro ao conectar. Tente novamente.'
+      if (reason === 'server_error') errorMsg = 'Erro interno. Tente novamente.'
+      toast({ variant: 'destructive', description: errorMsg })
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [searchParams])
 
   const checkStatus = async () => {
+    if (!user) return
     try {
       const { data, error } = await supabase.functions.invoke('google-calendar-auth', {
         body: { action: 'check_status' },
       })
+      if (error) throw error
       if (data?.connected) {
         setConnected(true)
-        setConnectedEmail(data.email || '')
-        setConnectedAt(data.connected_at || '')
+        setConnectedEmail(data.email)
+        setConnectedAt(data.connected_at)
       } else {
         setConnected(false)
-        setConnectedEmail('')
       }
-    } catch (error) {
-      console.error(error)
+    } catch (e) {
+      console.error(e)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    checkStatus()
-  }, [])
-
-  useEffect(() => {
-    const gcal = searchParams.get('gcal')
-    if (gcal === 'success') {
-      const email = searchParams.get('email')
-      toast({
-        title: 'Sucesso',
-        description: `Google Calendar conectado com sucesso! ${email || ''}`,
-      })
-      const url = new URL(window.location.href)
-      url.searchParams.delete('gcal')
-      url.searchParams.delete('email')
-      window.history.replaceState({}, '', url.toString())
-      checkStatus()
-    } else if (gcal === 'error') {
-      const reason = searchParams.get('reason')
-      let msg = 'Erro ao conectar. Tente novamente.'
-      if (reason === 'missing_code') msg = 'Autorizacao cancelada. Tente novamente.'
-      if (reason === 'invalid_state') msg = 'Erro de validacao. Tente novamente.'
-      if (reason === 'token_exchange_failed') msg = 'Erro ao conectar. Tente novamente.'
-      if (reason === 'server_error') msg = 'Erro interno. Tente novamente.'
-
-      toast({ title: 'Erro', description: msg, variant: 'destructive' })
-      const url = new URL(window.location.href)
-      url.searchParams.delete('gcal')
-      url.searchParams.delete('reason')
-      window.history.replaceState({}, '', url.toString())
-    }
-  }, [searchParams, toast])
-
   const handleConnect = async () => {
     try {
+      setLoading(true)
       const { data, error } = await supabase.functions.invoke('google-calendar-auth', {
         body: { action: 'get_auth_url' },
       })
+      if (error) throw error
       if (data?.auth_url) {
         window.location.href = data.auth_url
-      } else {
-        toast({
-          title: 'Erro',
-          description: 'Nao foi possivel obter URL de conexao.',
-          variant: 'destructive',
-        })
       }
     } catch (e) {
-      toast({ title: 'Erro', description: 'Erro interno.', variant: 'destructive' })
+      toast({ variant: 'destructive', description: 'Erro ao iniciar conexao.' })
+      setLoading(false)
     }
   }
 
   const handleDisconnect = async () => {
-    if (
-      !confirm(
-        'Desconectar Google Calendar\n\nA sincronizacao com Google Calendar sera desativada. Tem certeza?',
-      )
-    )
-      return
-
     try {
-      const { data, error } = await supabase.functions.invoke('google-calendar-auth', {
+      setLoading(true)
+      const { error } = await supabase.functions.invoke('google-calendar-auth', {
         body: { action: 'disconnect' },
       })
-      if (data?.success) {
-        setConnected(false)
-        setConnectedEmail('')
-        toast({ title: 'Sucesso', description: 'Google Calendar desconectado.' })
-      } else {
-        toast({
-          title: 'Erro',
-          description: 'Nao foi possivel desconectar.',
-          variant: 'destructive',
-        })
-      }
+      if (error) throw error
+      setConnected(false)
+      setConnectedEmail('')
+      toast({ description: 'Google Calendar desconectado.' })
     } catch (e) {
-      toast({ title: 'Erro', description: 'Erro interno.', variant: 'destructive' })
+      toast({ variant: 'destructive', description: 'Erro ao desconectar.' })
+    } finally {
+      setLoading(false)
+      setDisconnectDialogOpen(false)
     }
   }
 
-  const handleSync = async () => {
+  const handleSyncNow = async () => {
     try {
-      const timeMin = startOfMonth(new Date()).toISOString()
-      const timeMax = endOfMonth(new Date()).toISOString()
+      const date = new Date()
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString()
 
-      const { data, error } = await supabase.functions.invoke('google-calendar-sync', {
-        body: { action: 'list_events', timeMin, timeMax },
+      const { error } = await supabase.functions.invoke('google-calendar-sync', {
+        body: { action: 'list_events', timeMin: startOfMonth, timeMax: endOfMonth },
       })
-
-      if (!error) {
-        toast({ title: 'Sucesso', description: 'Calendario sincronizado' })
-      } else {
-        toast({ title: 'Erro', description: 'Erro ao sincronizar', variant: 'destructive' })
-      }
+      if (error) throw error
+      toast({ description: 'Calendario sincronizado' })
     } catch (e) {
-      toast({ title: 'Erro', description: 'Erro interno.', variant: 'destructive' })
+      toast({ variant: 'destructive', description: 'Erro ao sincronizar calendário.' })
     }
   }
 
-  if (loading) {
-    return <Skeleton className="w-[200px] h-[36px] rounded-md" />
-  }
+  if (loading) return <Skeleton className="w-[200px] h-[36px]" />
 
   if (!connected) {
     return (
-      <Button variant="outline" className="h-[36px] text-[13px] px-3 gap-2" onClick={handleConnect}>
-        <CalendarDays className="w-4 h-4" />
+      <Button variant="outline" className="h-[36px] text-[13px] gap-2" onClick={handleConnect}>
+        <CalendarDays className="h-4 w-4" />
         Conectar Google Calendar
       </Button>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 bg-secondary/30 border border-border rounded-md px-3 h-[36px]">
-      <div className="w-2 h-2 rounded-full bg-success" />
-      <span className="text-success text-[13px] font-medium">Calendar conectado</span>
-      {connectedEmail && (
-        <span className="text-muted-foreground text-[12px] truncate max-w-[120px]">
-          {connectedEmail}
-        </span>
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-6 w-6 p-0 ml-1">
-            <ChevronDown className="w-[14px] h-[14px]" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleSync}>Sincronizar agora</DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={handleDisconnect}
-          >
-            Desconectar
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <>
+      <div className="flex items-center gap-2">
+        <div className="h-2 w-2 rounded-full bg-[hsl(152,68%,40%)]" />
+        <div className="flex flex-col items-start leading-tight">
+          <span className="text-[13px] font-medium text-[hsl(152,68%,40%)]">
+            Calendar conectado
+          </span>
+          <span className="text-[12px] text-muted-foreground">{connectedEmail}</span>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleSyncNow}>Sincronizar agora</DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDisconnectDialogOpen(true)}
+            >
+              Desconectar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <AlertDialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar Google Calendar</AlertDialogTitle>
+            <AlertDialogDescription>
+              A sincronizacao com Google Calendar sera desativada. Tem certeza?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDisconnect}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              Desconectar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

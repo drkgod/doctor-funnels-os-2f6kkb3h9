@@ -14,11 +14,28 @@ import {
   Pencil,
 } from 'lucide-react'
 import { medicalRecordService } from '@/services/medicalRecordService'
+import { specialtyTemplateService } from '@/services/specialtyTemplateService'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -41,8 +58,10 @@ export default function ProntuarioDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const [data, setData] = useState<any>(null)
+  const [template, setTemplate] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState<Record<string, boolean>>({})
@@ -76,6 +95,14 @@ export default function ProntuarioDetail() {
       setLoading(true)
       const res = await medicalRecordService.fetchRecordById(recordId)
       setData(res)
+
+      if (res.record?.specialty && res.record?.tenant_id) {
+        const tpl = await specialtyTemplateService.getTemplateForSpecialty(
+          res.record.specialty,
+          res.record.tenant_id,
+        )
+        setTemplate(tpl)
+      }
     } catch (err: any) {
       setError(err.message || 'Prontuario nao encontrado')
     } finally {
@@ -86,34 +113,65 @@ export default function ProntuarioDetail() {
   const handleSectionChange = (sectionType: string, content: string, structured_data?: any) => {
     if (!data) return
     const section = data.sections.find((s: any) => s.section_type === sectionType)
-    if (!section) return
 
-    const newSections = data.sections.map((s: any) =>
-      s.id === section.id
-        ? {
-            ...s,
-            content,
-            structured_data: structured_data !== undefined ? structured_data : s.structured_data,
-          }
-        : s,
-    )
+    // If section doesn't exist (like specialty_fields from older records), we mock an ID to create it later
+    const sectionId = section ? section.id : `new_${sectionType}`
+
+    const newSections = section
+      ? data.sections.map((s: any) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                content,
+                structured_data:
+                  structured_data !== undefined ? structured_data : s.structured_data,
+              }
+            : s,
+        )
+      : [...data.sections, { id: sectionId, section_type: sectionType, content, structured_data }]
+
     setData({ ...data, sections: newSections })
 
-    if (debounceRefs.current[section.id]) clearTimeout(debounceRefs.current[section.id])
-    setSaving((prev) => ({ ...prev, [section.id]: true }))
-    setSaved((prev) => ({ ...prev, [section.id]: false }))
+    if (debounceRefs.current[sectionId]) clearTimeout(debounceRefs.current[sectionId])
+    setSaving((prev) => ({ ...prev, [sectionId]: true }))
+    setSaved((prev) => ({ ...prev, [sectionId]: false }))
 
-    debounceRefs.current[section.id] = setTimeout(async () => {
+    debounceRefs.current[sectionId] = setTimeout(async () => {
       try {
-        await medicalRecordService.updateSection(section.id, content, structured_data)
-        setSaved((prev) => ({ ...prev, [section.id]: true }))
+        if (section) {
+          await medicalRecordService.updateSection(section.id, content, structured_data)
+        } else {
+          // Fallback if section didn't exist
+          const created = await medicalRecordService.updateSection(
+            'new',
+            content,
+            structured_data,
+            data.record.id,
+            sectionType,
+          )
+          setData((prev: any) => ({
+            ...prev,
+            sections: prev.sections.map((s: any) => (s.id === sectionId ? created : s)),
+          }))
+        }
+        setSaved((prev) => ({ ...prev, [sectionId]: true }))
       } catch (e) {
         toast({ title: 'Erro ao salvar', variant: 'destructive' })
       } finally {
-        setSaving((prev) => ({ ...prev, [section.id]: false }))
-        setTimeout(() => setSaved((prev) => ({ ...prev, [section.id]: false })), 3000)
+        setSaving((prev) => ({ ...prev, [sectionId]: false }))
+        setTimeout(() => setSaved((prev) => ({ ...prev, [sectionId]: false })), 3000)
       }
     }, 1000)
+  }
+
+  const handleSpecialtyFieldChange = (key: string, value: any) => {
+    const section = data?.sections.find((s: any) => s.section_type === 'specialty_fields') || {
+      section_type: 'specialty_fields',
+      content: '',
+      structured_data: {},
+    }
+    const newStructuredData = { ...(section.structured_data || {}), [key]: value }
+    handleSectionChange('specialty_fields', section.content || '', newStructuredData)
   }
 
   const calculateIMC = (peso: string, altura: string) => {
@@ -180,6 +238,167 @@ export default function ProntuarioDetail() {
     }
   }
 
+  const renderSpecialtyField = (field: any, isEditing: boolean) => {
+    const section = data?.sections.find((s: any) => s.section_type === 'specialty_fields') || {}
+    const value = section.structured_data?.[field.key]
+
+    return (
+      <div key={field.key} className="space-y-1">
+        <label className="text-[13px] font-medium flex items-center gap-1.5">
+          {field.label}
+          {field.ai_mappable && (
+            <Sparkles
+              className="h-3 w-3 text-muted-foreground/50"
+              title="Suporta preenchimento via IA"
+            />
+          )}
+        </label>
+
+        {field.type === 'text' && (
+          <Input
+            className="h-10 text-[14px]"
+            placeholder={field.placeholder}
+            value={value || ''}
+            onChange={(e) => handleSpecialtyFieldChange(field.key, e.target.value)}
+            disabled={!isEditing}
+          />
+        )}
+
+        {field.type === 'number' ||
+          (field.type === 'scale' && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                className="h-10 text-[14px] w-full"
+                placeholder={field.placeholder}
+                value={value || ''}
+                min={field.min}
+                max={field.max}
+                onChange={(e) => handleSpecialtyFieldChange(field.key, e.target.value)}
+                disabled={!isEditing}
+              />
+              {field.unit && (
+                <span className="text-[12px] text-muted-foreground shrink-0">{field.unit}</span>
+              )}
+            </div>
+          ))}
+
+        {field.type === 'select' && (
+          <Select
+            disabled={!isEditing}
+            value={value || ''}
+            onValueChange={(v) => handleSpecialtyFieldChange(field.key, v)}
+          >
+            <SelectTrigger className="h-10 text-[14px]">
+              <SelectValue placeholder={field.placeholder || 'Selecione...'} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options?.map((opt: string) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {field.type === 'multiselect' && (
+          <div className="space-y-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild disabled={!isEditing}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between h-10 text-[14px] font-normal text-left"
+                >
+                  {field.placeholder || 'Selecione as opções...'}
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[300px]">
+                {field.options?.map((opt: string) => {
+                  const isSelected = (value || []).includes(opt)
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={opt}
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        const current = value || []
+                        const next = checked
+                          ? [...current, opt]
+                          : current.filter((i: string) => i !== opt)
+                        handleSpecialtyFieldChange(field.key, next)
+                      }}
+                    >
+                      {opt}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {value?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {value.map((opt: string) => (
+                  <span
+                    key={opt}
+                    className="inline-flex items-center px-2.5 py-1 bg-secondary rounded-full text-[12px] font-medium"
+                  >
+                    {opt}
+                    {isEditing && (
+                      <button
+                        onClick={() =>
+                          handleSpecialtyFieldChange(
+                            field.key,
+                            value.filter((i: string) => i !== opt),
+                          )
+                        }
+                        className="ml-1.5 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {field.type === 'textarea' && (
+          <Textarea
+            className="min-h-[100px] text-[14px] resize-y bg-input"
+            placeholder={field.placeholder}
+            value={value || ''}
+            onChange={(e) => handleSpecialtyFieldChange(field.key, e.target.value)}
+            disabled={!isEditing}
+          />
+        )}
+
+        {field.type === 'toggle' && (
+          <div className="flex items-center h-10 gap-3">
+            <Switch
+              checked={value || false}
+              onCheckedChange={(v) => handleSpecialtyFieldChange(field.key, v)}
+              disabled={!isEditing}
+            />
+            <span className="text-[13px] text-muted-foreground">{value ? 'Sim' : 'Não'}</span>
+          </div>
+        )}
+
+        {field.type === 'body_map' && (
+          <Button
+            variant="outline"
+            className="w-full h-10"
+            onClick={() =>
+              toast({ title: 'Mapa Corporal será implementado em breve.', variant: 'default' })
+            }
+          >
+            Abrir Mapa Corporal
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -212,6 +431,8 @@ export default function ProntuarioDetail() {
   const plan = sections.find((s: any) => s.section_type === 'plan') || {}
   const vitalSigns = sections.find((s: any) => s.section_type === 'vital_signs') || {}
   const vsData = vitalSigns.structured_data || {}
+  const specialtyFieldsSection =
+    sections.find((s: any) => s.section_type === 'specialty_fields') || {}
 
   const typeConfig = RECORD_TYPES_CONFIG[record.record_type] || {
     label: record.record_type,
@@ -221,6 +442,9 @@ export default function ProntuarioDetail() {
     label: record.status,
     color: 'bg-muted text-muted-foreground',
   }
+
+  const hasSpecialtyTab =
+    template && template.specialty !== 'geral' && template.sections?.length > 0
 
   return (
     <div className="p-6 max-w-5xl mx-auto pb-32">
@@ -297,6 +521,16 @@ export default function ProntuarioDetail() {
           >
             Exame Fisico
           </TabsTrigger>
+
+          {hasSpecialtyTab && (
+            <TabsTrigger
+              value="especialidade"
+              className="p-2.5 px-4 text-[13px] font-medium rounded-[4px] text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            >
+              Especialidade
+            </TabsTrigger>
+          )}
+
           <TabsTrigger
             value="avaliacao"
             className="p-2.5 px-4 text-[13px] font-medium rounded-[4px] text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
@@ -468,6 +702,56 @@ export default function ProntuarioDetail() {
               </div>
             </div>
           </TabsContent>
+
+          {hasSpecialtyTab && (
+            <TabsContent value="especialidade" className="mt-0 outline-none">
+              <div className="relative">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-[16px] font-semibold mb-1">
+                      {template.template_name} - Campos Especificos
+                    </h3>
+                    <p className="text-[13px] text-muted-foreground">
+                      Campos adicionais para esta especialidade.
+                    </p>
+                  </div>
+                  <div className="text-[11px] flex items-center gap-1 bg-card/90 px-2 py-1 rounded">
+                    {saving[specialtyFieldsSection.id || 'new_specialty_fields'] && (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />{' '}
+                        <span className="text-muted-foreground">Salvando...</span>
+                      </>
+                    )}
+                    {saved[specialtyFieldsSection.id || 'new_specialty_fields'] && (
+                      <>
+                        <Check className="h-3 w-3 text-[#20b26c]" />{' '}
+                        <span className="text-[#20b26c]">Salvo</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  {/* Group fields by category */}
+                  {Array.from(new Set(template.sections.map((s: any) => s.category))).map(
+                    (category: any) => {
+                      const fields = template.sections.filter((s: any) => s.category === category)
+                      return (
+                        <div key={category} className="space-y-4">
+                          <h4 className="text-[14px] font-semibold text-foreground border-b pb-2">
+                            {category}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                            {fields.map((field: any) => renderSpecialtyField(field, isEditing))}
+                          </div>
+                        </div>
+                      )
+                    },
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          )}
 
           <TabsContent value="avaliacao" className="mt-0 outline-none">
             <div className="relative mb-6">

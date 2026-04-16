@@ -167,6 +167,7 @@ export const medicalRecordService = {
       { record_id: record.id, section_type: 'assessment', content: '', structured_data: {} },
       { record_id: record.id, section_type: 'plan', content: '', structured_data: {} },
       { record_id: record.id, section_type: 'vital_signs', content: '', structured_data: {} },
+      { record_id: record.id, section_type: 'specialty_fields', content: '', structured_data: {} },
     ]
 
     const { data: sections, error: sectionsError } = await supabase
@@ -191,7 +192,28 @@ export const medicalRecordService = {
     return updated
   },
 
-  async updateSection(section_id: string, content?: string, structured_data?: any) {
+  async updateSection(
+    section_id: string,
+    content?: string,
+    structured_data?: any,
+    record_id?: string,
+    section_type?: string,
+  ) {
+    if (section_id === 'new') {
+      const { data: created, error } = await supabase
+        .from('medical_record_sections')
+        .insert({
+          record_id,
+          section_type,
+          content: content || '',
+          structured_data: structured_data || {},
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return created
+    }
+
     const { data: section } = await supabase
       .from('medical_record_sections')
       .select('ai_generated')
@@ -234,6 +256,34 @@ export const medicalRecordService = {
 
     if (error) throw error
     return true
+  },
+
+  async applyAiSuggestions(record_id: string, ai_data: Record<string, any>) {
+    const { data: section } = await supabase
+      .from('medical_record_sections')
+      .select('*')
+      .eq('record_id', record_id)
+      .eq('section_type', 'specialty_fields')
+      .maybeSingle()
+
+    if (!section) return
+
+    const currentData = (section.structured_data as any) || {}
+    let updated = false
+
+    for (const [key, value] of Object.entries(ai_data)) {
+      if (currentData[key] === undefined || currentData[key] === null || currentData[key] === '') {
+        currentData[key] = value
+        updated = true
+      }
+    }
+
+    if (updated) {
+      await supabase
+        .from('medical_record_sections')
+        .update({ structured_data: currentData })
+        .eq('id', section.id)
+    }
   },
 
   async fetchPatientHistory(patient_id: string) {
