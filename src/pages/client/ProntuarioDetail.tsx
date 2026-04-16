@@ -26,6 +26,7 @@ import {
   Trash2,
   Activity,
   User,
+  Eye,
 } from 'lucide-react'
 import { medicalRecordService } from '@/services/medicalRecordService'
 import { specialtyTemplateService } from '@/services/specialtyTemplateService'
@@ -36,6 +37,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { RecordPreview } from '@/components/medical/RecordPreview'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -102,6 +105,8 @@ export default function ProntuarioDetail() {
   const [cidSearch, setCidSearch] = useState('')
   const [isBodyMapEditorOpen, setIsBodyMapEditorOpen] = useState(false)
   const [activeBodyMapType, setActiveBodyMapType] = useState('body_front')
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [tenantData, setTenantData] = useState<any>(null)
 
   const {
     isRecording,
@@ -170,6 +175,15 @@ export default function ProntuarioDetail() {
           res.record.tenant_id,
         )
         setTemplate(tpl)
+      }
+
+      if (res.record?.tenant_id) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('id', res.record.tenant_id)
+          .single()
+        setTenantData(tenant)
       }
     } catch (err: any) {
       setError(err.message || 'Prontuario nao encontrado')
@@ -1855,6 +1869,28 @@ export default function ProntuarioDetail() {
 
           <TabsContent value="docs" className="mt-0 outline-none space-y-8">
             <div>
+              <h4 className="font-semibold text-[15px] mb-4">Prontuário</h4>
+              <div
+                className="p-4 bg-secondary/10 border-2 border-border/50 rounded-md flex items-center justify-between cursor-pointer hover:bg-secondary/30 transition-colors"
+                onClick={() => setIsPreviewOpen(true)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h5 className="font-medium text-[14px]">Visualizar Prontuário Completo</h5>
+                    <p className="text-[12px] text-muted-foreground">
+                      Documento estruturado pronto para impressão
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Eye className="h-4 w-4" /> Visualizar
+                </Button>
+              </div>
+            </div>
+            <div>
               <h4 className="font-semibold text-[15px] mb-2">Receitas</h4>
               {data.prescriptions?.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">
@@ -1922,6 +1958,16 @@ export default function ProntuarioDetail() {
           Tempo de consulta: {elapsedTime}min
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
+          <Button
+            variant="outline"
+            className="h-[38px] flex-1 md:flex-none gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsPreviewOpen(true)}
+          >
+            <Eye className="h-4 w-4" />
+            <span className="hidden sm:inline">Visualizar Prontuário</span>
+            <span className="sm:hidden">Visualizar</span>
+          </Button>
+
           {record.status === 'in_progress' && (
             <Button
               variant="outline"
@@ -1953,6 +1999,27 @@ export default function ProntuarioDetail() {
           onClose={() => setIsBodyMapEditorOpen(false)}
         />
       )}
+
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent
+          id="preview-dialog-content"
+          className="max-w-[900px] w-full h-[100dvh] md:h-[90vh] p-0 gap-0 overflow-hidden flex flex-col bg-muted/30 border-0"
+        >
+          <div className="flex-1 overflow-y-auto">
+            <RecordPreview
+              record={data}
+              patient={patient}
+              doctor={doctor}
+              tenant={tenantData}
+              specialtyTemplate={template}
+              bodyMaps={data.body_maps || []}
+              transcription={transcriptionData}
+              isLoading={loading}
+              error={error}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
