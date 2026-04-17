@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react'
 import { fetchPatientAnalytics } from '@/services/reportAnalyticsService'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { StatCard } from './StatCard'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 
 export function PacientesTab({ tenantId, dateRange, onDataLoaded }: any) {
   const [data, setData] = useState<any>(null)
@@ -88,36 +80,29 @@ export function PacientesTab({ tenantId, dateRange, onDataLoaded }: any) {
     },
   ]
 
+  const monthConfig = {
+    count: { label: 'Novos Pacientes', color: 'hsl(var(--primary))' },
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total de Pacientes" value={data.total_patients} />
-        <StatCard title="Novos no Período" value={data.new_in_period} />
-        <StatCard title="Taxa de Retorno" value={`${data.retention_rate.toFixed(1)}%`} />
+        <StatCard label="Total de Pacientes" value={data.total_patients} />
+        <StatCard label="Novos no Período" value={data.new_in_period} />
+        <StatCard label="Taxa de Retorno" value={`${data.retention_rate.toFixed(1)}%`} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Novos Pacientes por Mês</h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ChartContainer config={monthConfig} className="h-[260px] w-full">
             <BarChart data={data.by_month}>
-              <XAxis
-                dataKey="month"
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />
+              <YAxis tickLine={false} axisLine={false} fontSize={11} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         <div className="p-5 bg-card border border-border rounded-xl flex flex-col items-center justify-center relative">
@@ -125,25 +110,22 @@ export function PacientesTab({ tenantId, dateRange, onDataLoaded }: any) {
             Retenção de Pacientes
           </h3>
           <div className="w-[200px] h-[200px] mt-8 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={retentionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {retentionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <PieChart width={200} height={200}>
+              <Pie
+                data={retentionData}
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={90}
+                paddingAngle={2}
+                dataKey="value"
+                stroke="none"
+              >
+                {retentionData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Pie>
+            </PieChart>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-3xl font-bold">{data.retention_rate.toFixed(0)}%</span>
               <span className="text-xs text-muted-foreground mt-1">Retenção</span>
@@ -151,17 +133,6 @@ export function PacientesTab({ tenantId, dateRange, onDataLoaded }: any) {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl flex flex-col">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-        {title}
-      </span>
-      <span className="text-2xl md:text-3xl font-bold text-foreground">{value}</span>
     </div>
   )
 }

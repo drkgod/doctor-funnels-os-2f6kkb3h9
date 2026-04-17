@@ -3,6 +3,7 @@ import { fetchTranscriptionAnalytics } from '@/services/reportAnalyticsService'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { StatCard } from './StatCard'
 
 export function TranscricoesTab({ tenantId, dateRange, onDataLoaded }: any) {
   const [data, setData] = useState<any>(null)
@@ -69,11 +70,11 @@ export function TranscricoesTab({ tenantId, dateRange, onDataLoaded }: any) {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total de Transcrições" value={data.total} />
-        <StatCard title="Concluídas" value={data.completed} />
-        <StatCard title="Falhadas" value={data.failed} />
+        <StatCard label="Total de Transcrições" value={data.total} />
+        <StatCard label="Concluídas" value={data.completed} />
+        <StatCard label="Falhadas" value={data.failed} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -99,17 +100,6 @@ export function TranscricoesTab({ tenantId, dateRange, onDataLoaded }: any) {
           </p>
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl flex flex-col">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-        {title}
-      </span>
-      <span className="text-2xl md:text-3xl font-bold text-foreground">{value}</span>
     </div>
   )
 }

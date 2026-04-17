@@ -287,4 +287,6 @@ export function exportReportCSV(reportType: string, data: any) {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+
+  return csv
 }

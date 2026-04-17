@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchAppointmentAnalytics } from '@/services/reportAnalyticsService'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -23,6 +12,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { StatCard } from './StatCard'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
 
 export function ConsultasTab({ tenantId, dateRange, onDataLoaded }: any) {
   const [data, setData] = useState<any>(null)
@@ -87,37 +84,57 @@ export function ConsultasTab({ tenantId, dateRange, onDataLoaded }: any) {
     )
   }
 
+  const pieConfig = {
+    confirmed: { label: 'Confirmadas', color: 'hsl(var(--primary))' },
+    completed: { label: 'Realizadas', color: 'hsl(152, 68%, 40%)' },
+    cancelled: { label: 'Canceladas', color: 'hsl(var(--destructive))' },
+    no_show: { label: 'Faltas', color: 'hsl(45, 93%, 47%)' },
+    pending: { label: 'Pendentes', color: 'hsl(var(--muted-foreground))' },
+  }
+
   const pieData = [
-    { name: 'Confirmadas', value: data.by_status['confirmed'] || 0, fill: 'hsl(var(--primary))' },
-    { name: 'Realizadas', value: data.by_status['completed'] || 0, fill: 'hsl(152, 68%, 40%)' },
     {
-      name: 'Canceladas',
+      status: 'confirmed',
+      value: data.by_status['confirmed'] || 0,
+      fill: 'var(--color-confirmed)',
+    },
+    {
+      status: 'completed',
+      value: data.by_status['completed'] || 0,
+      fill: 'var(--color-completed)',
+    },
+    {
+      status: 'cancelled',
       value: data.by_status['cancelled'] || 0,
-      fill: 'hsl(var(--destructive))',
+      fill: 'var(--color-cancelled)',
     },
-    { name: 'Faltas', value: data.by_status['no_show'] || 0, fill: 'hsl(45, 93%, 47%)' },
-    {
-      name: 'Pendentes',
-      value: data.by_status['pending'] || 0,
-      fill: 'hsl(var(--muted-foreground))',
-    },
+    { status: 'no_show', value: data.by_status['no_show'] || 0, fill: 'var(--color-no_show)' },
+    { status: 'pending', value: data.by_status['pending'] || 0, fill: 'var(--color-pending)' },
   ].filter((d) => d.value > 0)
 
   const hourData = data.by_hour.filter((d: any) => d.count > 0)
 
+  const weekConfig = {
+    count: { label: 'Consultas', color: 'hsl(var(--primary))' },
+  }
+
+  const hourConfig = {
+    count: { label: 'Consultas', color: 'hsl(var(--primary))' },
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Total de Consultas" value={data.total_appointments} />
-        <StatCard title="Realizadas" value={data.by_status['completed'] || 0} />
-        <StatCard title="Taxa de Faltas" value={`${data.no_show_rate.toFixed(1)}%`} />
-        <StatCard title="Taxa de Cancelamento" value={`${data.cancellation_rate.toFixed(1)}%`} />
+        <StatCard label="Total de Consultas" value={data.total_appointments} />
+        <StatCard label="Realizadas" value={data.by_status['completed'] || 0} />
+        <StatCard label="Taxa de Faltas" value={`${data.no_show_rate.toFixed(1)}%`} />
+        <StatCard label="Taxa de Cancelamento" value={`${data.cancellation_rate.toFixed(1)}%`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Consultas por Status</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          <ChartContainer config={pieConfig} className="h-[240px] w-full">
             <PieChart>
               <Pie
                 data={pieData}
@@ -127,64 +144,43 @@ export function ConsultasTab({ tenantId, dateRange, onDataLoaded }: any) {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [value, 'Consultas']} />
-              <Legend />
+                nameKey="status"
+              />
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <ChartLegend content={<ChartLegendContent />} />
             </PieChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Por Dia da Semana</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          <ChartContainer config={weekConfig} className="h-[240px] w-full">
             <BarChart data={data.by_weekday}>
-              <XAxis
-                dataKey="name"
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
+              <YAxis tickLine={false} axisLine={false} fontSize={11} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Horários Mais Populares</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          <ChartContainer config={hourConfig} className="h-[240px] w-full">
             <BarChart data={hourData} layout="vertical" margin={{ left: -20 }}>
-              <XAxis
-                type="number"
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
-                tickLine={false}
-                axisLine={false}
-              />
+              <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} />
               <YAxis
                 dataKey="hour"
                 type="category"
-                fontSize={11}
-                stroke="hsl(var(--muted-foreground))"
                 tickLine={false}
                 axisLine={false}
+                fontSize={11}
                 width={60}
               />
-              <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </div>
 
@@ -215,17 +211,6 @@ export function ConsultasTab({ tenantId, dateRange, onDataLoaded }: any) {
           </TableBody>
         </Table>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl flex flex-col">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-        {title}
-      </span>
-      <span className="text-2xl md:text-3xl font-bold text-foreground">{value}</span>
     </div>
   )
 }

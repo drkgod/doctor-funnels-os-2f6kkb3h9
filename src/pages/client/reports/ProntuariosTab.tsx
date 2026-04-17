@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react'
 import { fetchRecordAnalytics } from '@/services/reportAnalyticsService'
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
+import { StatCard } from './StatCard'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
 
 export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
   const [data, setData] = useState<any>(null)
@@ -69,33 +77,32 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
     )
   }
 
-  const statusColors: any = {
-    in_progress: 'hsl(195, 80%, 45%)',
-    review: 'hsl(45, 93%, 47%)',
-    completed: 'hsl(var(--primary))',
-    signed: 'hsl(270, 60%, 50%)',
-  }
-  const statusLabels: any = {
-    in_progress: 'Em andamento',
-    review: 'Revisão',
-    completed: 'Concluído',
-    signed: 'Assinado',
+  const statusConfig = {
+    in_progress: { label: 'Em andamento', color: 'hsl(195, 80%, 45%)' },
+    review: { label: 'Revisão', color: 'hsl(45, 93%, 47%)' },
+    completed: { label: 'Concluído', color: 'hsl(var(--primary))' },
+    signed: { label: 'Assinado', color: 'hsl(270, 60%, 50%)' },
   }
 
   const pieData = Object.entries(data.by_status)
     .map(([status, value]: any) => ({
-      name: statusLabels[status] || status,
+      status,
       value,
-      fill: statusColors[status] || 'hsl(var(--muted))',
+      fill: `var(--color-${status})`,
     }))
     .filter((d) => d.value > 0)
 
+  const aiConfig = {
+    assisted: { label: 'Com IA', color: 'hsl(var(--primary))' },
+    manual: { label: 'Sem IA', color: 'hsl(var(--muted))' },
+  }
+
   const aiPieData = [
-    { name: 'Com IA', value: data.ai_assisted, fill: 'hsl(var(--primary))' },
+    { type: 'assisted', value: data.ai_assisted, fill: 'var(--color-assisted)' },
     {
-      name: 'Sem IA',
+      type: 'manual',
       value: Math.max(0, data.total_records - data.ai_assisted),
-      fill: 'hsl(var(--muted))',
+      fill: 'var(--color-manual)',
     },
   ].filter((d) => d.value > 0)
 
@@ -103,13 +110,13 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
   const avgMins = Math.round((data.average_completion_time - avgHours) * 60)
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Total de Prontuários" value={data.total_records} />
-        <StatCard title="Assinados" value={data.by_status['signed'] || 0} />
-        <StatCard title="Taxa de Assinatura" value={`${data.signed_rate.toFixed(1)}%`} />
+        <StatCard label="Total de Prontuários" value={data.total_records} />
+        <StatCard label="Assinados" value={data.by_status['signed'] || 0} />
+        <StatCard label="Taxa de Assinatura" value={`${data.signed_rate.toFixed(1)}%`} />
         <StatCard
-          title="Assistidos por IA"
+          label="Assistidos por IA"
           value={`${data.ai_assisted} (${data.ai_assisted_rate.toFixed(0)}%)`}
         />
       </div>
@@ -117,7 +124,7 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Prontuários por Status</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          <ChartContainer config={statusConfig} className="h-[240px] w-full">
             <PieChart>
               <Pie
                 data={pieData}
@@ -127,21 +134,18 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
+                nameKey="status"
                 stroke="none"
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [value, 'Prontuários']} />
-              <Legend />
+              />
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <ChartLegend content={<ChartLegendContent />} />
             </PieChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         <div className="p-5 bg-card border border-border rounded-xl">
           <h3 className="text-sm font-semibold mb-4">Uso de IA nos Prontuários</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          <ChartContainer config={aiConfig} className="h-[240px] w-full">
             <PieChart>
               <Pie
                 data={aiPieData}
@@ -151,16 +155,13 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
+                nameKey="type"
                 stroke="none"
-              >
-                {aiPieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [value, 'Prontuários']} />
-              <Legend />
+              />
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <ChartLegend content={<ChartLegendContent />} />
             </PieChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         <div className="p-5 bg-card border border-border rounded-xl flex flex-col justify-center items-center text-center">
@@ -175,17 +176,6 @@ export function ProntuariosTab({ tenantId, dateRange, onDataLoaded }: any) {
           </p>
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl flex flex-col">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-        {title}
-      </span>
-      <span className="text-2xl md:text-3xl font-bold text-foreground">{value}</span>
     </div>
   )
 }
