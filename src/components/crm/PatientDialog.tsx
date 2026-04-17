@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { X } from 'lucide-react'
 import { patientService, type Patient } from '@/services/patientService'
 import { useToast } from '@/hooks/use-toast'
+import { useNotificationTriggers } from '@/hooks/use-notification-triggers'
 
 interface Props {
   open: boolean
@@ -58,6 +59,7 @@ export function PatientDialog({
   onSuccess,
 }: Props) {
   const { toast } = useToast()
+  const { notifyNewPatient } = useNotificationTriggers()
   const [loading, setLoading] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [formData, setFormData] = useState<Partial<Patient>>({
@@ -139,9 +141,14 @@ export function PatientDialog({
       }
 
       let saved
-      if (patient) saved = await patientService.updatePatient(patient.id, dataToSave)
-      else saved = await patientService.createPatient(tenantId, dataToSave)
-      toast({ title: patient ? 'Paciente atualizado' : 'Paciente criado com sucesso' })
+      if (patient) {
+        saved = await patientService.updatePatient(patient.id, dataToSave)
+        toast({ title: 'Paciente atualizado' })
+      } else {
+        saved = await patientService.createPatient(tenantId, dataToSave)
+        toast({ title: 'Paciente criado com sucesso' })
+        notifyNewPatient(tenantId, saved.full_name)
+      }
       onSuccess(saved)
       onOpenChange(false)
     } catch (err) {

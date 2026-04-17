@@ -1,5 +1,6 @@
 import { Suspense, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import { useTheme } from '@/hooks/use-theme'
 import { useAuthContext } from '@/hooks/use-auth'
 import { SidebarNav } from './SidebarNav'
@@ -15,13 +16,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Menu, Moon, Sun, Settings, LogOut } from 'lucide-react'
+import {
+  Menu,
+  Moon,
+  Sun,
+  Settings,
+  LogOut,
+  Bell,
+  Calendar,
+  FileText,
+  Mic,
+  Info,
+  AlertTriangle,
+} from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useNotifications } from '@/hooks/use-notifications'
+import { Skeleton } from '@/components/ui/skeleton'
+
+function getRelativeTime(dateStr: string) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000)
+
+  if (diffInMinutes < 1) return 'agora'
+  if (diffInMinutes < 60) return `ha ${diffInMinutes} min`
+
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) return `ha ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`
+
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays === 1) return 'ontem'
+  if (diffInDays < 7) return `ha ${diffInDays} dias`
+
+  return format(date, 'dd/MM')
+}
 
 export default function AppLayout() {
   const { theme, setTheme } = useTheme()
   const { profile, signOut } = useAuthContext()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications()
 
   const handleSignOut = async () => {
     await signOut()
@@ -90,6 +126,129 @@ export default function AppLayout() {
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             <span className="sr-only">Toggle theme</span>
           </Button>
+
+          <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative active:scale-95 transition-transform"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                    {unreadCount >= 10 ? '9+' : unreadCount}
+                  </span>
+                )}
+                <span className="sr-only">Toggle notifications</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[calc(100vw-32px)] md:w-[380px] p-0 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+            >
+              <div className="flex items-center justify-between border-b px-4 py-3.5">
+                <span className="text-[14px] font-semibold">Notificacoes</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-[11px] text-primary hover:underline font-medium"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {isLoading ? (
+                  <div className="p-4 space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-10 text-center flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
+                      <Bell className="h-6 w-6 text-muted-foreground/50" />
+                    </div>
+                    <span className="text-[13px] text-muted-foreground">Nenhuma notificacao</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {notifications.map((notif) => {
+                      let Icon = Info
+                      let bgClass = 'bg-secondary'
+                      let iconColorClass = 'text-muted-foreground'
+
+                      if (notif.type === 'appointment') {
+                        Icon = Calendar
+                        bgClass = 'bg-[hsl(270,60%,50%)]/10'
+                        iconColorClass = 'text-[hsl(270,60%,50%)]'
+                      } else if (notif.type === 'record') {
+                        Icon = FileText
+                        bgClass = 'bg-primary/10'
+                        iconColorClass = 'text-primary'
+                      } else if (notif.type === 'transcription') {
+                        Icon = Mic
+                        bgClass = 'bg-[hsl(195,80%,45%)]/10'
+                        iconColorClass = 'text-[hsl(195,80%,45%)]'
+                      } else if (notif.type === 'alert') {
+                        Icon = AlertTriangle
+                        bgClass = 'bg-destructive/10'
+                        iconColorClass = 'text-destructive'
+                      }
+
+                      return (
+                        <div
+                          key={notif.id}
+                          className={`flex gap-2.5 p-3 px-4 border-b border-border/30 cursor-pointer transition-colors hover:bg-secondary/30 relative ${!notif.read ? 'bg-primary/5' : ''}`}
+                          onClick={() => {
+                            markAsRead(notif.id)
+                            setNotificationsOpen(false)
+                            if (notif.reference_type === 'medical_record' && notif.reference_id) {
+                              navigate(`/prontuarios/${notif.reference_id}`)
+                            } else if (notif.reference_type === 'appointment') {
+                              navigate('/agenda')
+                            }
+                          }}
+                        >
+                          {!notif.read && (
+                            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+                          )}
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${bgClass} ${!notif.read ? 'ml-2' : ''}`}
+                          >
+                            <Icon className={`w-3.5 h-3.5 ${iconColorClass}`} />
+                          </div>
+                          <div className="flex flex-col flex-1">
+                            <span className="text-[13px] font-medium leading-tight text-foreground">
+                              {notif.title}
+                            </span>
+                            <span className="text-[12px] text-muted-foreground leading-[1.4] mt-0.5">
+                              {notif.message}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground mt-1">
+                              {getRelativeTime(notif.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-border/50 p-2.5 flex justify-center bg-card">
+                <button className="text-[12px] font-medium text-primary hover:underline">
+                  Ver todas
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

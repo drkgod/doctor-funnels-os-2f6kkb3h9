@@ -31,10 +31,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { GoogleCalendarConnect } from '@/components/GoogleCalendarConnect'
+import { useNotificationTriggers } from '@/hooks/use-notification-triggers'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function Agenda() {
   const { tenant } = useTenant()
+  const { user } = useAuth()
   const { toast } = useToast()
+  const { notifyAppointmentReminder } = useNotificationTriggers()
   const [searchParams] = useSearchParams()
 
   const [view, setView] = useState<'day' | 'week' | 'month'>(() => {
@@ -134,6 +138,31 @@ export default function Agenda() {
 
       const data = await appointmentService.fetchAppointments(tenant.id, from, to)
       setAppointments(data)
+
+      // Appointment reminder logic
+      if (user?.id) {
+        const now = new Date()
+        const in30Mins = new Date(now.getTime() + 30 * 60000)
+
+        data.forEach((app) => {
+          if (app.status === 'confirmed' || app.status === 'pending') {
+            const start = new Date(app.datetime_start)
+            if (start > now && start <= in30Mins) {
+              const notifiedKey = `notified_app_${app.id}`
+              if (!localStorage.getItem(notifiedKey)) {
+                notifyAppointmentReminder(
+                  tenant.id,
+                  user.id,
+                  app.id,
+                  app.patient_name || 'Paciente',
+                  format(start, 'HH:mm'),
+                )
+                localStorage.setItem(notifiedKey, 'true')
+              }
+            }
+          }
+        })
+      }
 
       if (gcalConnected) {
         await loadGcalData(from, to, forceGcal)

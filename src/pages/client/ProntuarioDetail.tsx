@@ -76,6 +76,7 @@ import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { BodyMapEditor, BodyMapPreview } from '@/components/medical/BodyMapEditor'
+import { useNotificationTriggers } from '@/hooks/use-notification-triggers'
 
 const CATEGORY_COLORS = [
   'bg-primary',
@@ -105,6 +106,7 @@ export default function ProntuarioDetail() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = useAuth()
+  const { notifyTranscriptionComplete, notifyRecordSigned } = useNotificationTriggers()
 
   const [activeTab, setActiveTab] = useState('')
   const [data, setData] = useState<any>(null)
@@ -293,6 +295,16 @@ export default function ProntuarioDetail() {
         variant: 'default',
       })
       loadData(data.record.id)
+
+      if (user?.id && data.record.tenant_id) {
+        notifyTranscriptionComplete(
+          data.record.tenant_id,
+          user.id,
+          data.record.id,
+          data.patient?.full_name || 'Paciente',
+        )
+      }
+
       const newT = await transcriptionService.fetchTranscription(data.record.id)
       setTranscriptionData(newT)
       resetRecording()
@@ -2502,7 +2514,17 @@ export default function ProntuarioDetail() {
         specialty={doctor?.specialty}
         crmNumber={doctor?.crm_number}
         crmState={doctor?.crm_state}
-        onSigned={() => loadData(record.id)}
+        onSigned={() => {
+          loadData(record.id)
+          if (user?.id && record.tenant_id) {
+            notifyRecordSigned(
+              record.tenant_id,
+              user.id,
+              record.id,
+              patient?.full_name || 'Paciente',
+            )
+          }
+        }}
         open={isSignatureOpen}
         onOpenChange={setIsSignatureOpen}
       />
