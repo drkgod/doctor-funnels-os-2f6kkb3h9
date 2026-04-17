@@ -12,8 +12,18 @@ import {
   Calendar as CalIcon,
   Zap,
   FileText,
+  CircleSlash,
+  WifiOff,
+  XCircle,
+  RefreshCw,
+  Save,
+  Trash2,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { tenantService } from '@/services/tenantService'
+import { whatsappAdminService } from '@/services/whatsappAdminService'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
@@ -143,6 +153,38 @@ export default function TenantDetail() {
   ]
   const [expandedLog, setExpandedLog] = useState<string | null>(null)
   const [creatingInstance, setCreatingInstance] = useState(false)
+
+  const [waStatus, setWaStatus] = useState<any>(null)
+  const [loadingWa, setLoadingWa] = useState(false)
+  const [waToken, setWaToken] = useState('')
+  const [showWaToken, setShowWaToken] = useState(false)
+  const [savingWa, setSavingWa] = useState(false)
+  const [showRemoveWaDialog, setShowRemoveWaDialog] = useState(false)
+  const [removingWa, setRemovingWa] = useState(false)
+
+  const loadWaStatus = async () => {
+    if (!id) return
+    setLoadingWa(true)
+    try {
+      const res = await whatsappAdminService.getInstanceStatus(id)
+      setWaStatus(res)
+    } catch (e) {
+      setWaStatus({
+        connected: false,
+        status: 'error',
+        configured: false,
+        message: 'Erro ao verificar status.',
+      })
+    } finally {
+      setLoadingWa(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'WhatsApp') {
+      loadWaStatus()
+    }
+  }, [activeTab, id])
 
   const loadData = async () => {
     try {
@@ -368,87 +410,179 @@ export default function TenantDetail() {
       )}
 
       {activeTab === 'WhatsApp' && (
-        <div className="animate-fade-in">
-          {!wappKey ? (
-            <div className="p-6 bg-card border border-border rounded-[var(--radius)] flex flex-col items-center justify-center py-16">
-              <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-[16px] font-semibold text-foreground">
-                Nenhuma instância WhatsApp
-              </h3>
-              <p className="text-[14px] text-muted-foreground mt-2">
-                Crie uma instância para este tenant se conectar ao WhatsApp.
-              </p>
+        <div className="space-y-6 animate-fade-in">
+          {/* Section 1: Status Card */}
+          <div className="p-6 bg-card border border-border rounded-[var(--radius)]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[16px] font-semibold text-foreground">Status da Conexão</h3>
               <button
-                onClick={createInstance}
-                disabled={creatingInstance}
-                className="mt-4 h-10 px-6 font-semibold text-[14px] bg-primary text-primary-foreground rounded-[var(--radius)] hover:bg-primary/90 transition-colors disabled:opacity-50"
+                onClick={loadWaStatus}
+                disabled={loadingWa}
+                className="flex items-center gap-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                {creatingInstance ? 'Criando...' : 'Criar Instância'}
+                <RefreshCw className={cn('w-4 h-4', loadingWa && 'animate-spin')} />
+                Atualizar Status
               </button>
             </div>
-          ) : (
-            <div className="p-6 bg-card border border-border rounded-[var(--radius)]">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        'w-[10px] h-[10px] rounded-full',
-                        wappKey.metadata?.instance_status === 'connected'
-                          ? 'bg-success'
-                          : wappKey.metadata?.instance_status === 'connecting'
-                            ? 'bg-amber-500'
-                            : 'bg-destructive',
-                      )}
-                    />
-                    <span className="text-[14px] font-medium capitalize text-foreground">
-                      {wappKey.metadata?.instance_status || 'Desconectado'}
-                    </span>
-                  </div>
 
+            {loadingWa && !waStatus ? (
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+            ) : waStatus ? (
+              <div className="space-y-4">
+                {!waStatus.configured || waStatus.status === 'not_configured' ? (
                   <div>
-                    <p className="text-[16px] font-semibold font-mono text-foreground">
-                      {wappKey.metadata?.phone_number || 'Nenhum número conectado'}
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/50 text-muted-foreground text-[13px] font-medium mb-2 border border-border">
+                      <CircleSlash className="w-4 h-4" />
+                      Não Configurado
+                    </div>
+                    <p className="text-[14px] text-muted-foreground">
+                      Nenhuma instância UAZAPI registrada para este tenant. Cadastre o token abaixo.
                     </p>
                   </div>
-
-                  <div className="flex items-center gap-2 text-[13px]">
-                    {wappKey.metadata?.webhook_configured ? (
-                      <span className="flex items-center text-success">
-                        <CheckCircle2 className="w-4 h-4 mr-1" /> Webhook configurado
-                      </span>
-                    ) : (
-                      <span className="flex items-center text-amber-500">
-                        <AlertTriangle className="w-4 h-4 mr-1" /> Webhook pendente
-                      </span>
+                ) : waStatus.status === 'error' ? (
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 text-destructive text-[13px] font-medium mb-2 border border-destructive/20">
+                      <XCircle className="w-4 h-4" />
+                      Erro
+                    </div>
+                    <p className="text-[14px] text-muted-foreground mb-3">
+                      {waStatus.message || 'Erro ao verificar status da instância.'}
+                    </p>
+                    <button
+                      onClick={loadWaStatus}
+                      className="h-8 px-3 rounded-[var(--radius)] border border-border text-[12px] font-medium hover:bg-secondary transition-colors outline-style inline-flex items-center gap-2"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : waStatus.configured && !waStatus.connected ? (
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[13px] font-medium mb-2 border border-amber-500/20">
+                      <WifiOff className="w-4 h-4" />
+                      Desconectado
+                    </div>
+                    <p className="text-[14px] text-muted-foreground">
+                      Instância configurada. O cliente precisa escanear o QR Code na página de
+                      WhatsApp dele.
+                    </p>
+                    {waStatus.phone && (
+                      <p className="text-[14px] font-medium text-foreground mt-2">
+                        Número: {waStatus.phone}
+                      </p>
                     )}
                   </div>
+                ) : waStatus.connected ? (
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 text-success text-[13px] font-medium mb-2 border border-success/20">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Conectado
+                    </div>
+                    {waStatus.phone && (
+                      <p className="text-[14px] font-medium text-foreground mt-2">
+                        Número: {waStatus.phone}
+                      </p>
+                    )}
+                    {waStatus.connected_at && (
+                      <p className="text-[13px] text-muted-foreground mt-1">
+                        Última conexão: {new Date(waStatus.connected_at).toLocaleString('pt-BR')}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
-                  {wappKey.metadata?.last_disconnection_reason && (
-                    <p className="text-[13px] text-muted-foreground">
-                      <span className="font-medium">Desconexão:</span>{' '}
-                      {wappKey.metadata.last_disconnection_reason}
-                    </p>
-                  )}
-                  {wappKey.metadata?.connected_at && (
-                    <p className="text-[13px] text-muted-foreground">
-                      <span className="font-medium">Conectado em:</span>{' '}
-                      {format(new Date(wappKey.metadata.connected_at), 'dd/MM/yyyy HH:mm')}
-                    </p>
-                  )}
-                </div>
+          {/* Section 2: Configuration Form */}
+          <div className="p-6 bg-card border border-border rounded-[var(--radius)]">
+            <h3 className="text-[16px] font-semibold text-foreground mb-6">
+              Configurar Instância UAZAPI
+            </h3>
 
-                <div className="flex flex-col gap-2 min-w-[180px]">
+            <div className="max-w-md space-y-4">
+              <div>
+                <Label className="block text-[13px] font-medium mb-1">
+                  Token da Instância <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <input
+                    type={showWaToken ? 'text' : 'password'}
+                    value={waToken}
+                    onChange={(e) => setWaToken(e.target.value)}
+                    placeholder="Cole aqui o token da instância UAZAPI"
+                    className="w-full h-10 px-3 pr-10 text-[14px] bg-background border border-border rounded-[var(--radius)] focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
                   <button
-                    onClick={() => removeKey(wappKey.id)}
-                    className="h-9 px-4 w-full rounded-[var(--radius)] border border-destructive text-destructive text-[13px] font-medium hover:bg-destructive/10 transition-colors outline-style flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => setShowWaToken(!showWaToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    Remover Instância
+                    {showWaToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <p className="text-[12px] text-muted-foreground mt-2">
+                  O subdomínio UAZAPI é configurado globalmente pelo servidor. Cada tenant recebe
+                  apenas o token da sua instância.
+                </p>
+              </div>
+
+              {waStatus?.configured && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-[var(--radius)]">
+                  <p className="text-[13px] text-amber-500 font-medium">
+                    Salvar novamente irá substituir o token atual e reconfigurar o webhook.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={async () => {
+                    if (!waToken) {
+                      toast.error('O token é obrigatório.')
+                      return
+                    }
+                    setSavingWa(true)
+                    try {
+                      const res = await whatsappAdminService.registerInstance(id!, waToken)
+                      toast.success(
+                        `Instância UAZAPI configurada com sucesso! ${res.webhook_configured ? 'Webhook configurado automaticamente.' : '(Webhook precisa ser configurado manualmente)'}`,
+                      )
+                      setWaToken('')
+                      loadWaStatus()
+                      loadData() // Refresh general tenant data too
+                    } catch (e: any) {
+                      toast.error(e.message || 'Erro ao salvar configuração.')
+                    } finally {
+                      setSavingWa(false)
+                    }
+                  }}
+                  disabled={savingWa || !waToken}
+                  className="h-10 px-4 bg-primary text-primary-foreground text-[14px] font-medium rounded-[var(--radius)] hover:bg-primary/90 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingWa ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Salvar e Configurar
+                </button>
+
+                {waStatus?.configured && (
+                  <button
+                    onClick={() => setShowRemoveWaDialog(true)}
+                    className="h-10 px-4 border border-destructive text-destructive text-[14px] font-medium rounded-[var(--radius)] hover:bg-destructive/10 transition-colors outline-style inline-flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remover Instância
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -819,6 +953,56 @@ export default function TenantDetail() {
               ))}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRemoveWaDialog} onOpenChange={setShowRemoveWaDialog}>
+        <DialogContent className="sm:max-w-[425px] p-6 rounded-[var(--radius)]">
+          <DialogHeader>
+            <DialogTitle className="text-[18px] font-semibold text-destructive">
+              Remover Instância UAZAPI
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-[14px] text-muted-foreground">
+              Tem certeza? O WhatsApp deste tenant será desconectado e o token removido. O cliente
+              perderá acesso ao WhatsApp.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              onClick={() => setShowRemoveWaDialog(false)}
+              disabled={removingWa}
+              className="h-10 px-4 rounded-[var(--radius)] border border-border text-[14px] font-medium hover:bg-secondary transition-colors outline-style"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                setRemovingWa(true)
+                try {
+                  await whatsappAdminService.removeInstance(id!)
+                  toast.success('Instância removida com sucesso.')
+                  setShowRemoveWaDialog(false)
+                  loadWaStatus()
+                  loadData()
+                } catch (e: any) {
+                  toast.error(e.message || 'Erro ao remover instância.')
+                } finally {
+                  setRemovingWa(false)
+                }
+              }}
+              disabled={removingWa}
+              className="h-10 px-4 rounded-[var(--radius)] bg-destructive text-destructive-foreground text-[14px] font-medium hover:bg-destructive/90 transition-colors flex items-center gap-2"
+            >
+              {removingWa ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Sim, Remover
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
