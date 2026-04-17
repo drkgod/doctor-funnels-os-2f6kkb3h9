@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/types'
@@ -25,6 +25,7 @@ interface AuthState {
   isDoctor: boolean
   isSecretary: boolean
   tenantId: string | null
+  isTabVisible: React.MutableRefObject<boolean>
 }
 
 export function useAuth(): AuthState {
@@ -34,55 +35,125 @@ export function useAuth(): AuthState {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const profileRef = useRef<Profile | null>(null)
+  const userRef = useRef<User | null>(null)
+  const isTabVisible = useRef<boolean>(true)
+
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (!session?.user) {
-        setProfile(null)
-        setLoading(false)
-      }
-    })
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (!session?.user) {
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    const handleVisibilityChange = () => {
+      isTabVisible.current = document.visibilityState === 'visible'
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
+
+  const fetchProfile = (userId: string, callback?: (p: Profile | null) => void) => {
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          profileRef.current = data
+          setProfile(data)
+          if (callback) callback(data)
+        } else {
+          profileRef.current = null
+          setProfile(null)
+          if (callback) callback(null)
+        }
+      })
+      .catch(() => {
+        if (callback) callback(null)
+      })
+  }
 
   useEffect(() => {
     let isMounted = true
 
-    if (user) {
-      setLoading(true)
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          if (isMounted) {
-            if (data) setProfile(data)
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!isMounted) return
+      setSession(initialSession)
+      setUser(initialSession?.user ?? null)
+      userRef.current = initialSession?.user ?? null
+
+      if (initialSession?.user) {
+        fetchProfile(initialSession.user.id, () => {
+          if (isMounted) setLoading(false)
+        })
+      } else {
+        setLoading(false)
+      }
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!isMounted) return
+
+      setSession(newSession)
+      const newUser = newSession?.user ?? null
+
+      switch (event) {
+        case 'INITIAL_SESSION': {
+          setUser(newUser)
+          userRef.current = newUser
+          if (newUser) {
+            setLoading(true)
+            fetchProfile(newUser.id, () => {
+              if (isMounted) setLoading(false)
+            })
+          } else {
+            setProfile(null)
+            profileRef.current = null
             setLoading(false)
           }
-        })
-    } else {
-      if (isMounted) {
-        setProfile(null)
+          break
+        }
+        case 'SIGNED_IN': {
+          setUser(newUser)
+          userRef.current = newUser
+          if (newUser && (!profileRef.current || profileRef.current.id !== newUser.id)) {
+            fetchProfile(newUser.id)
+          }
+          break
+        }
+        case 'TOKEN_REFRESHED': {
+          if (!userRef.current && newUser) {
+            setUser(newUser)
+            userRef.current = newUser
+            fetchProfile(newUser.id)
+          }
+          break
+        }
+        case 'SIGNED_OUT': {
+          setUser(null)
+          userRef.current = null
+          setProfile(null)
+          profileRef.current = null
+          setLoading(false)
+          break
+        }
+        case 'USER_UPDATED': {
+          setUser(newUser)
+          userRef.current = newUser
+          if (newUser) {
+            fetchProfile(newUser.id)
+          }
+          break
+        }
+        case 'PASSWORD_RECOVERY': {
+          break
+        }
       }
-    }
+    })
 
     return () => {
       isMounted = false
+      subscription.unsubscribe()
     }
-  }, [user])
+  }, [])
 
   const signInWithEmail = async (email: string, password: string) => {
     setError(null)
@@ -176,6 +247,7 @@ export function useAuth(): AuthState {
     isDoctor: profile?.role === 'doctor',
     isSecretary: profile?.role === 'secretary',
     tenantId: profile?.tenant_id || null,
+    isTabVisible,
   }
 }
 

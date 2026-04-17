@@ -8,7 +8,7 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuthContext()
   const location = useLocation()
 
-  if (loading) {
+  if (loading && !isAuthenticated) {
     return (
       <div className="flex flex-col h-screen w-full bg-background p-6 gap-6">
         <div className="flex gap-4">
@@ -23,7 +23,7 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !loading) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
@@ -31,16 +31,16 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
 }
 
 export function AdminRoute({ children }: { children?: React.ReactNode }) {
-  const { isAuthenticated, isAdmin, loading } = useAuthContext()
+  const { isAuthenticated, isAdmin, loading, profile } = useAuthContext()
   const location = useLocation()
 
   useEffect(() => {
-    if (!loading && isAuthenticated && !isAdmin) {
+    if (!loading && isAuthenticated && profile && !isAdmin) {
       toast.error('Acesso restrito ao administrador.')
     }
-  }, [loading, isAuthenticated, isAdmin])
+  }, [loading, isAuthenticated, isAdmin, profile])
 
-  if (loading) {
+  if (loading && (!isAuthenticated || profile === null)) {
     return (
       <div className="flex flex-col h-screen w-full bg-background p-6 gap-6">
         <div className="flex gap-4">
@@ -55,11 +55,11 @@ export function AdminRoute({ children }: { children?: React.ReactNode }) {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !loading) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (!isAdmin) {
+  if (isAuthenticated && !isAdmin && (profile !== null || !loading)) {
     return <Navigate to="/dashboard" replace />
   }
 
