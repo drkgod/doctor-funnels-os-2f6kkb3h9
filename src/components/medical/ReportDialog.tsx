@@ -105,7 +105,14 @@ export function ReportDialog({
   }, [daysOff])
 
   const handleSuggestWithAI = async () => {
-    if (!assessmentText) return
+    if (!assessmentText?.trim()) {
+      toast({
+        title: 'Preencha a Avaliação primeiro',
+        description: 'A IA precisa do raciocínio clínico (Avaliação) para sugerir o documento.',
+        variant: 'destructive',
+      })
+      return
+    }
     setAiLoading(true)
     try {
       const data = await aiPrescriptionService.suggestPrescription(
@@ -232,7 +239,7 @@ export function ReportDialog({
           <div className="px-6 mt-5 space-y-4">
             <div className="flex items-center justify-between h-8">
               <span />
-              {(reportType === 'atestado' || reportType === 'laudo') && assessmentText && (
+              {(reportType === 'atestado' || reportType === 'laudo') && (
                 <Button
                   variant="outline"
                   size="sm"

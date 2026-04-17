@@ -116,7 +116,14 @@ export function PrescriptionDialog({
   }
 
   const handleSuggestWithAI = async () => {
-    if (!assessmentText) return
+    if (!assessmentText?.trim()) {
+      toast({
+        title: 'Preencha a Avaliação primeiro',
+        description: 'A IA precisa do raciocínio clínico (Avaliação) para sugerir a prescrição.',
+        variant: 'destructive',
+      })
+      return
+    }
     setAiLoading(true)
     try {
       const patientContext = medications
@@ -260,22 +267,20 @@ export function PrescriptionDialog({
                   {medications.length}
                 </span>
               </div>
-              {assessmentText && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-[12px] gap-1.5"
-                  onClick={handleSuggestWithAI}
-                  disabled={aiLoading}
-                >
-                  {aiLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  )}
-                  Sugerir com IA
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px] gap-1.5"
+                onClick={handleSuggestWithAI}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                )}
+                Sugerir com IA
+              </Button>
             </div>
 
             {aiLoading && (
