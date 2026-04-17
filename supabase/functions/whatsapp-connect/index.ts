@@ -1,97 +1,114 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader)
-      return new Response(JSON.stringify({ error: 'Nao autorizado' }), {
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Nao autorizado.' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } },
+    )
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseUser.auth.getUser()
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Sessao invalida.' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
-    const token = authHeader.replace('Bearer ', '')
-    const {
-      data: { user },
-    } = await supabaseAdmin.auth.getUser(token)
-
-    if (!user)
-      return new Response(JSON.stringify({ error: 'Nao autorizado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('tenant_id')
+      .select('role, tenant_id')
       .eq('id', user.id)
       .single()
-    if (!profile?.tenant_id)
-      return new Response(JSON.stringify({ error: 'Nao autorizado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
 
-    const { data: module } = await supabaseAdmin
-      .from('tenant_modules')
-      .select('is_enabled')
-      .eq('tenant_id', profile.tenant_id)
-      .eq('module_key', 'whatsapp')
-      .single()
-    if (!module?.is_enabled)
-      return new Response(JSON.stringify({ error: 'Modulo WhatsApp nao disponivel' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    const body = await req.json().catch(() => ({}))
+    let target_tenant_id = null
 
-    const { data: apiKey } = await supabaseAdmin
-      .from('tenant_api_keys')
-      .select('encrypted_key, metadata')
-      .eq('tenant_id', profile.tenant_id)
-      .eq('provider', 'uazapi')
-      .single()
-    if (!apiKey)
-      return new Response(JSON.stringify({ error: 'Chave API nao encontrada' }), {
+    if (body.tenant_id && profile?.role === 'super_admin') {
+      target_tenant_id = body.tenant_id
+    } else {
+      target_tenant_id = profile?.tenant_id
+    }
+
+    if (!target_tenant_id) {
+      return new Response(JSON.stringify({ error: 'Tenant nao identificado.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
 
-    const secretKey = Deno.env.get('ENCRYPTION_KEY') || 'mock_secret_for_preview'
+    const { data: keyData } = await supabaseAdmin
+      .from('tenant_api_keys')
+      .select('encrypted_key, metadata')
+      .eq('tenant_id', target_tenant_id)
+      .eq('provider', 'uazapi')
+      .maybeSingle()
 
+    if (!keyData) {
+      return new Response(
+        JSON.stringify({
+          error: 'Instancia UAZAPI nao configurada para este tenant. Solicite ao administrador.',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
+    const secret = Deno.env.get('ENCRYPTION_KEY') || 'mock_secret_for_preview'
     const { data: decryptedToken, error: decryptError } = await supabaseAdmin.rpc(
       'decrypt_api_key',
       {
-        encrypted_value: apiKey.encrypted_key,
-        secret_key: secretKey,
+        encrypted_value: keyData.encrypted_key,
+        secret_key: secret,
       },
     )
 
     if (decryptError || !decryptedToken) {
-      return new Response(JSON.stringify({ error: 'Erro ao descriptografar token' }), {
+      return new Response(JSON.stringify({ error: 'Erro ao descriptografar token UAZAPI.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const subdomain = (apiKey.metadata as any)?.subdomain
-    if (!subdomain)
-      return new Response(JSON.stringify({ error: 'Subdominio nao configurado' }), {
-        status: 400,
+    let metadata = keyData.metadata
+    if (typeof metadata === 'string') {
+      try {
+        metadata = JSON.parse(metadata)
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const subdomain = (metadata as any)?.subdomain || Deno.env.get('WHATSAPP_SUBDOMAIN')
+    if (!subdomain) {
+      return new Response(JSON.stringify({ error: 'Subdominio UAZAPI nao configurado.' }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
 
     const uazapiRes = await fetch(`https://${subdomain}.uazapi.com/instance/connect`, {
       method: 'POST',
@@ -100,43 +117,32 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({}),
-    })
+    }).catch(() => null)
 
-    if (uazapiRes.status === 429) {
+    if (!uazapiRes || !uazapiRes.ok) {
       return new Response(
-        JSON.stringify({ error: 'Limite atingido. Tente novamente mais tarde.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ error: 'Erro ao gerar QR Code. Tente novamente em alguns segundos.' }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       )
     }
 
-    if (!uazapiRes.ok) {
-      return new Response(
-        JSON.stringify({
-          error: 'Instancia nao disponivel. Verifique a configuracao no painel administrativo.',
-          fallback: true,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
-      )
-    }
+    const uazapiData = await uazapiRes.json().catch(() => ({}))
 
-    let uazapiData
-    try {
-      uazapiData = await uazapiRes.json()
-    } catch (e) {
-      return new Response(
-        JSON.stringify({
-          error: 'Instancia nao disponivel. Verifique a configuracao no painel administrativo.',
-          fallback: true,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
-      )
-    }
-
-    return new Response(JSON.stringify(uazapiData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Erro ao conectar WhatsApp. Tente novamente.' }), {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        ...uazapiData,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    )
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: 'Erro interno do servidor.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
