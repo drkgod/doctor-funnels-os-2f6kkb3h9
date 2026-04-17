@@ -116,9 +116,38 @@ function WhatsappInterface() {
   const generateQrCode = async () => {
     setQrLoading(true)
     try {
-      const data = await whatsappClientService.connectMyWhatsApp()
-      if (data?.error) throw new Error(data.error)
-      setQrData(data)
+      const result = await supabase.functions.invoke('whatsapp-connect')
+      console.log('whatsapp-connect response:', result)
+
+      const responseData = result.data || {}
+      if (result.error) throw new Error(result.error.message || 'Erro na requisição')
+      if (responseData.error) throw new Error(responseData.error)
+
+      const qrCodeValue =
+        responseData.base64 ||
+        responseData.qrcode ||
+        responseData.qr ||
+        responseData.qr_code ||
+        responseData.image ||
+        responseData.data?.base64 ||
+        responseData.data?.qrcode
+
+      const pairingCodeValue =
+        responseData.pairingCode ||
+        responseData.pairing_code ||
+        responseData.code ||
+        responseData.data?.pairingCode ||
+        responseData.data?.pairing_code
+
+      if (!qrCodeValue) {
+        console.warn('QR Code data unexpected format:', responseData)
+        toast({ description: 'QR Code recebido mas formato inesperado. Verifique o console.' })
+      }
+
+      setQrData({
+        qrCode: qrCodeValue,
+        pairingCode: pairingCodeValue,
+      })
     } catch (e: any) {
       toast({ description: 'Erro ao gerar QR Code. Tente novamente.', variant: 'destructive' })
     } finally {
@@ -202,37 +231,31 @@ function WhatsappInterface() {
             Escaneie o QR Code abaixo com o WhatsApp do seu celular para conectar.
           </p>
 
-          {!qrData ? (
-            <Button
-              onClick={generateQrCode}
-              disabled={qrLoading}
-              className="w-full mt-6 h-12 text-base gap-2"
-            >
-              {qrLoading ? (
-                <RefreshCw className="h-5 w-5 animate-spin" />
-              ) : (
-                <Smartphone className="h-5 w-5" />
-              )}
-              Gerar QR Code
-            </Button>
-          ) : (
+          {qrLoading ? (
+            <div className="flex flex-col items-center justify-center w-full mt-6 space-y-4">
+              <Skeleton className="w-[280px] h-[280px] rounded-xl" />
+              <p className="text-[14px] font-medium text-muted-foreground animate-pulse">
+                Gerando QR Code...
+              </p>
+            </div>
+          ) : qrData && qrData.qrCode ? (
             <div className="w-full flex flex-col items-center mt-6">
-              {qrData.base64 && (
-                <>
-                  <div className="p-2 bg-white rounded-xl border border-border shadow-sm">
-                    <img
-                      src={`data:image/png;base64,${qrData.base64}`}
-                      alt="QR Code"
-                      style={{ width: 280, height: 280 }}
-                      className="object-contain"
-                    />
-                  </div>
-                  <p className="text-[13px] text-muted-foreground mt-4 leading-relaxed">
-                    Abra o WhatsApp no celular, va em Dispositivos Conectados e escaneie o codigo
-                    acima.
-                  </p>
-                </>
-              )}
+              <div className="p-2 bg-white rounded-xl border border-border shadow-sm">
+                <img
+                  src={
+                    qrData.qrCode.startsWith('data:image')
+                      ? qrData.qrCode
+                      : `data:image/png;base64,${qrData.qrCode}`
+                  }
+                  alt="QR Code"
+                  style={{ width: 280, height: 280 }}
+                  className="object-contain"
+                />
+              </div>
+              <p className="text-[13px] text-muted-foreground mt-4 leading-relaxed">
+                Abra o WhatsApp no celular, va em Dispositivos Conectados e escaneie o codigo acima.
+              </p>
+
               {qrData.pairingCode && (
                 <div className="mt-6 w-full text-left">
                   <p className="text-[13px] font-medium text-foreground mb-2">
@@ -256,14 +279,31 @@ function WhatsappInterface() {
                   </div>
                 </div>
               )}
+
               <Button
                 onClick={generateQrCode}
                 disabled={qrLoading}
                 variant="outline"
                 className="w-full mt-6 gap-2"
               >
-                <RefreshCw className={cn('h-4 w-4', qrLoading && 'animate-spin')} />
+                <RefreshCw className="h-4 w-4" />
                 Gerar Novo QR Code
+              </Button>
+            </div>
+          ) : (
+            <div className="w-full flex flex-col items-center mt-6">
+              {qrData && !qrData.qrCode && (
+                <p className="text-[13px] text-destructive mb-4 text-center">
+                  QR Code nao retornado. Tente novamente.
+                </p>
+              )}
+              <Button
+                onClick={generateQrCode}
+                disabled={qrLoading}
+                className="w-full h-12 text-base gap-2"
+              >
+                <Smartphone className="h-5 w-5" />
+                Gerar QR Code
               </Button>
             </div>
           )}
