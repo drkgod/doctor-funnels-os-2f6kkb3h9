@@ -701,4 +701,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
         Ocorreu um erro ao carregar os dados do dashboard. Tente novamente.
       </p>
       <Button onClick={onRetry}>Tentar Novamente</Button>
-    </di
+    </div>
+  )
+}
