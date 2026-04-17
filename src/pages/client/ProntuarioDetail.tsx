@@ -31,6 +31,8 @@ import {
   Printer,
   Pill,
   ShieldAlert,
+  TestTube,
+  FileCheck,
 } from 'lucide-react'
 import { medicalRecordService } from '@/services/medicalRecordService'
 import { specialtyTemplateService } from '@/services/specialtyTemplateService'
