@@ -5,12 +5,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { FileCheck, FileText, Forward, TestTube } from 'lucide-react'
+import { FileCheck, FileText, Forward, TestTube, MapPin, Tag, Loader2 } from 'lucide-react'
 import { medicalReportService } from '@/services/medicalReportService'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -142,21 +141,31 @@ export function ReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[700px] p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>{existingReport ? 'Editar Documento' : 'Novo Documento'}</DialogTitle>
-          <DialogDescription className="sr-only">
-            Crie ou edite o documento do paciente {patientName}
-          </DialogDescription>
+      <DialogContent className="max-w-none w-full h-[100dvh] sm:h-auto sm:max-w-[580px] p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col sm:max-h-[90vh]">
+        <DialogHeader className="px-6 py-4 border-b border-border">
+          <DialogTitle className="text-[16px] font-bold flex items-center gap-2">
+            <FileText className="h-[18px] w-[18px] text-primary" />
+            {existingReport ? 'Editar Documento' : 'Novo Documento'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="overflow-y-auto flex-1 flex flex-col">
+          <div className="grid grid-cols-2 gap-[10px] px-6 py-4">
             {[
-              { id: 'atestado', label: 'Atestado Médico', icon: FileCheck },
-              { id: 'laudo', label: 'Laudo Médico', icon: FileText },
-              { id: 'encaminhamento', label: 'Encaminhamento', icon: Forward },
-              { id: 'solicitacao_exames', label: 'Exames', icon: TestTube },
+              { id: 'atestado', label: 'Atestado', sub: 'Afastamento', icon: FileCheck },
+              { id: 'laudo', label: 'Laudo', sub: 'Relatorio medico', icon: FileText },
+              {
+                id: 'encaminhamento',
+                label: 'Encaminhamento',
+                sub: 'Outro especialista',
+                icon: Forward,
+              },
+              {
+                id: 'solicitacao_exames',
+                label: 'Solicitacao de Exames',
+                sub: 'Laboratorio/imagem',
+                icon: TestTube,
+              },
             ].map((t) => {
               const Icon = t.icon
               const isSelected = reportType === t.id
@@ -165,93 +174,117 @@ export function ReportDialog({
                   key={t.id}
                   onClick={() => handleTypeChange(t.id)}
                   className={cn(
-                    'flex flex-col items-center justify-center p-3 border rounded-md cursor-pointer transition-colors gap-2 text-center',
+                    'p-3.5 border rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150',
                     isSelected
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'hover:bg-secondary border-border',
+                      ? 'border-primary border-2 bg-primary/5'
+                      : 'border-border hover:border-primary/30',
                   )}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[12px] font-medium leading-tight">{t.label}</span>
+                  <Icon
+                    className={cn(
+                      'h-6 w-6 mx-auto',
+                      isSelected ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  />
+                  <div className="text-[12px] font-semibold mt-1.5">{t.label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{t.sub}</div>
                 </div>
               )
             })}
           </div>
 
-          <div className="space-y-4">
+          <div className="px-6 pb-6 space-y-4">
             {reportType === 'laudo' && (
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                   Título do Laudo *
                 </label>
                 <Input
                   placeholder="Ex: Laudo Médico para Procedimento Estético"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  className="h-[38px] text-[13px]"
                 />
               </div>
             )}
 
             {reportType === 'atestado' && (
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px] block">
                     Dias de Afastamento
                   </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={daysOff}
-                    onChange={(e) => setDaysOff(e.target.value)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={daysOff}
+                      onChange={(e) => setDaysOff(e.target.value)}
+                      className="h-[38px] w-[80px] text-[16px] font-bold text-center"
+                    />
+                    <span className="text-[13px] text-muted-foreground">dia(s)</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                     CID-10 (Opcional)
                   </label>
-                  <Input
-                    placeholder="Ex: J06.9"
-                    value={cid10}
-                    onChange={(e) => setCid10(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-[12px] h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Ex: J06.9"
+                      value={cid10}
+                      onChange={(e) => setCid10(e.target.value)}
+                      className="h-[38px] text-[13px] pl-9 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
             )}
 
             {reportType === 'encaminhamento' && (
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                   Encaminhar para
                 </label>
-                <Input
-                  placeholder="Ex: Ortopedista, Dr. Fulano"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                />
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-[12px] h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Ex: Ortopedista, Dr. Fulano"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className="h-[38px] text-[13px] pl-9"
+                  />
+                </div>
               </div>
             )}
 
             {(reportType === 'laudo' ||
               reportType === 'encaminhamento' ||
               reportType === 'solicitacao_exames') && (
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                   CID-10 (Opcional)
                 </label>
-                <Input
-                  placeholder="Ex: J06.9"
-                  value={cid10}
-                  onChange={(e) => setCid10(e.target.value)}
-                  className="max-w-[200px]"
-                />
+                <div className="relative w-full sm:w-[200px]">
+                  <Tag className="absolute left-3 top-[12px] h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Ex: J06.9"
+                    value={cid10}
+                    onChange={(e) => setCid10(e.target.value)}
+                    className="h-[38px] text-[13px] pl-9 font-mono"
+                  />
+                </div>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                 {reportType === 'solicitacao_exames'
                   ? 'Exames Solicitados *'
-                  : 'Conteúdo do Documento *'}
+                  : reportType === 'laudo'
+                    ? 'Conteúdo do Laudo *'
+                    : 'Conteúdo do Documento *'}
               </label>
               <Textarea
                 placeholder={
@@ -261,18 +294,26 @@ export function ReportDialog({
                 }
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="min-h-[250px] text-[14px] leading-relaxed resize-y"
+                className="min-h-[160px] text-[13px] leading-[1.6] resize-y placeholder:text-muted-foreground/60"
               />
             </div>
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-secondary/20">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="px-6 py-4 border-t border-border flex justify-end gap-2.5 sm:gap-2">
+          <Button
+            variant="outline"
+            className="h-[38px] text-[13px] w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar Documento'}
+          <Button
+            className="h-[38px] text-[13px] font-semibold w-full sm:w-auto"
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar Documento'}
           </Button>
         </DialogFooter>
       </DialogContent>

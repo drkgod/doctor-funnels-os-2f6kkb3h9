@@ -534,25 +534,30 @@ export default function ProntuarioDetail() {
         <head>
           <title>Imprimir Documento</title>
           <style>
-            body { font-family: "Georgia", "Cambria", "Times New Roman", serif; margin: 0; padding: 20mm; color: black; background: white; font-size: 11pt; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #000; padding-bottom: 16px; }
-            .clinic-name { font-size: 18px; font-weight: bold; font-family: "Plus Jakarta Sans", sans-serif; }
-            .doc-type { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-            .patient-box { border: 1px solid #ccc; padding: 16px; margin-bottom: 24px; border-radius: 6px; }
-            .patient-row { margin-bottom: 8px; }
-            .patient-label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; font-family: "Plus Jakarta Sans", sans-serif; }
-            .patient-val { font-size: 12px; font-weight: bold; }
-            .content { margin-top: 24px; line-height: 1.6; white-space: pre-wrap; font-size: 12px; }
-            .med-block { margin-bottom: 16px; }
-            .med-name { font-weight: bold; font-size: 13px; text-transform: uppercase; }
-            .med-details { margin-top: 4px; font-size: 11px; }
-            .signature { margin-top: 60px; text-align: center; page-break-inside: avoid; }
-            .sig-line { width: 250px; height: 1px; background: #000; margin: 0 auto 8px auto; }
-            .sig-name { font-weight: bold; font-size: 12px; }
-            .sig-crm { font-size: 10px; color: #555; }
+            body { font-family: "Georgia", "Cambria", "Times New Roman", serif; margin: 0; color: black; background: white; font-size: 11pt; padding: 20mm; }
             @media print {
-              body { padding: 0; margin: 15mm; }
+              @page { margin: 20mm; }
+              body { margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
             }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }
+            .clinic-name { font-size: 14pt; font-weight: bold; font-family: "Plus Jakarta Sans", sans-serif; }
+            .doc-type { font-size: 14pt; font-weight: 700; text-transform: uppercase; text-align: center; margin-bottom: 24px; }
+            .patient-box { margin-bottom: 24px; }
+            .patient-row { margin-bottom: 8px; font-size: 11pt; }
+            .patient-val { font-weight: bold; }
+            .content { margin-top: 24px; }
+            .med-block { border-bottom: 1px solid hsl(0, 0%, 85%); padding: 8pt 0; }
+            .med-name { font-weight: 700; font-size: 12pt; }
+            .med-details { font-size: 10pt; margin-top: 4px; line-height: 1.4; }
+            .med-quantity { font-size: 10pt; font-style: italic; }
+            .general-notes { font-size: 10pt; margin-top: 12pt; }
+            .valid-until { font-size: 9pt; margin-top: 12pt; }
+            .report-content { font-size: 11pt; line-height: 1.6; white-space: pre-wrap; }
+            .report-cid { font-size: 10pt; margin-top: 16pt; }
+            .signature { margin-top: 36pt; text-align: center; page-break-inside: avoid; }
+            .sig-line { width: 200px; height: 1px; background: #000; margin: 0 auto 8px auto; }
+            .sig-name { font-weight: bold; font-size: 11pt; }
+            .sig-crm { font-size: 10pt; color: #555; }
           </style>
         </head>
         <body>${htmlContent}</body>
@@ -566,12 +571,14 @@ export default function ProntuarioDetail() {
   }
 
   const handlePrintPrescription = (p: any) => {
-    const typeLabel =
-      p.prescription_type === 'special_control'
-        ? 'RECEITA DE CONTROLE ESPECIAL'
-        : p.prescription_type === 'antimicrobial'
-          ? 'RECEITA DE ANTIMICROBIANO'
-          : 'RECEITA MÉDICA'
+    let docType = 'RECEITA MÉDICA'
+    let docTypeStyle = ''
+    if (p.prescription_type === 'special_control') {
+      docType = 'RECEITA DE CONTROLE ESPECIAL'
+      docTypeStyle = 'font-size: 12pt;'
+    } else if (p.prescription_type === 'antimicrobial') {
+      docType = 'RECEITA DE ANTIMICROBIANO'
+    }
 
     let medsHtml = ''
     if (p.medications && Array.isArray(p.medications)) {
@@ -580,12 +587,12 @@ export default function ProntuarioDetail() {
           <div class="med-block">
             <div class="med-name">${m.name} ${m.dosage ? ` - ${m.dosage}` : ''}</div>
             <div class="med-details">
-              ${m.route ? `Via: ${m.route} | ` : ''}
-              ${m.frequency ? `Posologia: ${m.frequency} | ` : ''}
-              ${m.duration ? `Duração: ${m.duration} | ` : ''}
-              ${m.quantity ? `Quantidade: ${m.quantity}` : ''}
+              ${m.route ? `Via: ${m.route}<br/>` : ''}
+              ${m.frequency ? `Posologia: ${m.frequency}<br/>` : ''}
+              ${m.duration ? `Duração: ${m.duration}<br/>` : ''}
+              ${m.instructions ? `Instruções: ${m.instructions}<br/>` : ''}
             </div>
-            ${m.instructions ? `<div class="med-details">Instruções: ${m.instructions}</div>` : ''}
+            ${m.quantity ? `<div class="med-quantity">Quantidade: ${m.quantity}</div>` : ''}
           </div>
         `
       })
@@ -595,23 +602,23 @@ export default function ProntuarioDetail() {
       <div class="header">
         <div>
           <div class="clinic-name">${tenantData?.name || 'Clínica'}</div>
-          ${tenantData?.address ? `<div style="font-size: 10px; color: #555; margin-top: 4px;">${tenantData.address}</div>` : ''}
+          ${tenantData?.address ? `<div style="font-size: 10pt; color: #555; margin-top: 4px;">${tenantData.address}</div>` : ''}
         </div>
-        <div style="text-align: right;">
-          <div class="doc-type">${typeLabel}</div>
-          <div style="font-size: 10px; margin-top: 4px;">${format(new Date(p.created_at), 'dd/MM/yyyy')}</div>
+        <div style="text-align: right; font-size: 10pt;">
+          <div>${format(new Date(p.created_at), 'dd/MM/yyyy')}</div>
         </div>
       </div>
+      <div class="doc-type" style="${docTypeStyle}">${docType}</div>
       <div class="patient-box">
         <div class="patient-row">
-          <span class="patient-label">Paciente:</span> <span class="patient-val">${patient?.full_name}</span>
+          Paciente: <span class="patient-val">${patient?.full_name}</span>
         </div>
-        ${patient?.cpf ? `<div class="patient-row"><span class="patient-label">CPF:</span> <span class="patient-val">${patient.cpf}</span></div>` : ''}
+        ${patient?.cpf ? `<div class="patient-row">CPF: <span class="patient-val">${patient.cpf}</span></div>` : ''}
       </div>
       <div class="content">
         ${medsHtml}
-        ${p.notes ? `<div style="margin-top: 24px;"><strong>Observações:</strong><br/>${p.notes}</div>` : ''}
-        ${p.valid_until ? `<div style="margin-top: 16px; font-size: 11px;">Validade: ${format(new Date(p.valid_until), 'dd/MM/yyyy')}</div>` : ''}
+        ${p.notes ? `<div class="general-notes"><strong>Observações:</strong><br/>${p.notes}</div>` : ''}
+        ${p.valid_until ? `<div class="valid-until">Validade: ${format(new Date(p.valid_until), 'dd/MM/yyyy')}</div>` : ''}
       </div>
       <div class="signature">
         <div class="sig-line"></div>
@@ -633,23 +640,24 @@ export default function ProntuarioDetail() {
       <div class="header">
         <div>
           <div class="clinic-name">${tenantData?.name || 'Clínica'}</div>
-          ${tenantData?.address ? `<div style="font-size: 10px; color: #555; margin-top: 4px;">${tenantData.address}</div>` : ''}
+          ${tenantData?.address ? `<div style="font-size: 10pt; color: #555; margin-top: 4px;">${tenantData.address}</div>` : ''}
         </div>
-        <div style="text-align: right;">
-          <div class="doc-type">${typeLabel}</div>
-          <div style="font-size: 10px; margin-top: 4px;">${format(new Date(r.created_at), 'dd/MM/yyyy')}</div>
+        <div style="text-align: right; font-size: 10pt;">
+          <div>${format(new Date(r.created_at), 'dd/MM/yyyy')}</div>
         </div>
       </div>
+      <div class="doc-type">${typeLabel}</div>
       <div class="patient-box">
         <div class="patient-row">
-          <span class="patient-label">Paciente:</span> <span class="patient-val">${patient?.full_name}</span>
+          Paciente: <span class="patient-val">${patient?.full_name}</span>
         </div>
-        ${patient?.cpf ? `<div class="patient-row"><span class="patient-label">CPF:</span> <span class="patient-val">${patient.cpf}</span></div>` : ''}
+        ${patient?.cpf ? `<div class="patient-row">CPF: <span class="patient-val">${patient.cpf}</span></div>` : ''}
       </div>
-      <div style="margin-bottom: 16px; font-weight: bold; font-size: 14px;">${r.title}</div>
+      ${r.title ? `<div style="margin-bottom: 16pt; font-weight: bold; font-size: 12pt;">${r.title}</div>` : ''}
       <div class="content">
-        ${r.content}
-        ${r.metadata?.cid10 ? `<div style="margin-top: 24px;"><strong>CID-10:</strong> ${r.metadata.cid10}</div>` : ''}
+        <div class="report-content">${r.content}</div>
+        ${r.metadata?.days_off ? `<div style="margin-top: 16pt; font-weight: bold;">${r.metadata.days_off} dia(s) de afastamento</div>` : ''}
+        ${r.metadata?.cid10 ? `<div class="report-cid"><strong>CID-10:</strong> ${r.metadata.cid10}</div>` : ''}
       </div>
       <div class="signature">
         <div class="sig-line"></div>
@@ -1611,21 +1619,21 @@ export default function ProntuarioDetail() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2.5 mt-5 pt-4 border-t">
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
                 <Button
                   variant="outline"
-                  className="h-[38px] text-[13px] gap-1.5 hover:border-primary hover:text-primary"
+                  className="h-9 text-[12px] gap-1.5 rounded-[var(--radius)] hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-150"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedPrescription(null)
                     setIsPrescriptionOpen(true)
                   }}
                 >
-                  Nova Receita
+                  <Pill className="h-3.5 w-3.5" /> Nova Receita
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-[38px] text-[13px] gap-1.5 hover:border-primary hover:text-primary"
+                  className="h-9 text-[12px] gap-1.5 rounded-[var(--radius)] hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-150"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedReport(null)
@@ -1633,11 +1641,11 @@ export default function ProntuarioDetail() {
                     setIsReportOpen(true)
                   }}
                 >
-                  Novo Laudo
+                  <FileText className="h-3.5 w-3.5" /> Novo Laudo
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-[38px] text-[13px] gap-1.5 hover:border-primary hover:text-primary"
+                  className="h-9 text-[12px] gap-1.5 rounded-[var(--radius)] hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-150"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedReport(null)
@@ -1645,11 +1653,11 @@ export default function ProntuarioDetail() {
                     setIsReportOpen(true)
                   }}
                 >
-                  Solicitar Exames
+                  <TestTube className="h-3.5 w-3.5" /> Solicitar Exames
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-[38px] text-[13px] gap-1.5 hover:border-primary hover:text-primary"
+                  className="h-9 text-[12px] gap-1.5 rounded-[var(--radius)] hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-150"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedReport(null)
@@ -1657,7 +1665,7 @@ export default function ProntuarioDetail() {
                     setIsReportOpen(true)
                   }}
                 >
-                  Atestado
+                  <FileCheck className="h-3.5 w-3.5" /> Atestado
                 </Button>
               </div>
             </div>
@@ -2124,12 +2132,14 @@ export default function ProntuarioDetail() {
               </div>
             </div>
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-[15px]">Receitas</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="flex items-center gap-1.5 font-bold text-[13px] uppercase tracking-[0.5px] text-muted-foreground">
+                  <Pill className="h-3.5 w-3.5" /> Receitas
+                </h4>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8"
+                  className="h-8 text-[12px]"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedPrescription(null)
@@ -2141,13 +2151,15 @@ export default function ProntuarioDetail() {
               </div>
               {loadingDocs ? (
                 <div className="space-y-2">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full rounded-[var(--radius)]" />
+                  <Skeleton className="h-16 w-full rounded-[var(--radius)]" />
                 </div>
               ) : prescriptions.length === 0 ? (
-                <div className="p-4 bg-secondary/10 border border-dashed rounded-md text-center">
-                  <p className="text-[13px] text-muted-foreground">
-                    Nenhuma receita gerada para este atendimento.
+                <div className="flex flex-col items-center justify-center py-6 px-4 bg-secondary/5 border border-dashed border-border/50 rounded-[var(--radius)] text-center">
+                  <Pill className="h-7 w-7 text-muted-foreground/25 mb-2" />
+                  <p className="text-[13px] text-muted-foreground">Nenhuma receita</p>
+                  <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                    Crie uma receita na aba Conduta
                   </p>
                 </div>
               ) : (
@@ -2155,65 +2167,85 @@ export default function ProntuarioDetail() {
                   {prescriptions.map((p) => (
                     <div
                       key={p.id}
-                      className="p-3 bg-secondary/10 border border-border/50 rounded-md flex items-center justify-between"
+                      className="p-3.5 px-4 bg-secondary/10 hover:bg-secondary/20 border border-transparent hover:border-border rounded-[var(--radius)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all duration-150"
+                      onClick={() => {
+                        if (isEditing) {
+                          setSelectedPrescription(p)
+                          setIsPrescriptionOpen(true)
+                        }
+                      }}
                     >
-                      <div
-                        className="flex items-center gap-3 cursor-pointer"
-                        onClick={() => {
-                          if (isEditing) {
-                            setSelectedPrescription(p)
-                            setIsPrescriptionOpen(true)
-                          }
-                        }}
-                      >
-                        <div
+                      <div className="flex items-center gap-3">
+                        <span
                           className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center',
+                            'text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap',
                             p.prescription_type === 'simple'
                               ? 'bg-primary/10 text-primary'
-                              : 'bg-destructive/10 text-destructive',
+                              : p.prescription_type === 'special_control'
+                                ? 'bg-[hsl(45,93%,47%)]/10 text-[hsl(45,93%,47%)]'
+                                : 'bg-[hsl(270,60%,50%)]/10 text-[hsl(270,60%,50%)]',
                           )}
                         >
-                          {p.prescription_type === 'simple' ? (
-                            <Pill className="w-4 h-4" />
-                          ) : (
-                            <ShieldAlert className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-medium text-[13px]">
-                            {p.prescription_type === 'simple'
-                              ? 'Receita Simples'
-                              : p.prescription_type === 'special_control'
-                                ? 'Controle Especial'
-                                : 'Antimicrobiano'}
-                          </h5>
-                          <p className="text-[11px] text-muted-foreground">
-                            {p.medications?.length || 0} medicamento(s) •{' '}
-                            {format(new Date(p.created_at), 'dd/MM/yyyy')}
-                          </p>
+                          {p.prescription_type === 'simple'
+                            ? 'Simples'
+                            : p.prescription_type === 'special_control'
+                              ? 'Controle Especial'
+                              : 'Antimicrobiano'}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-[13px] leading-tight">
+                            {p.medications?.length || 0} medicamento(s)
+                          </span>
+                          <span className="text-[11px] text-muted-foreground mt-0.5">
+                            {format(new Date(p.created_at), 'dd/MM/yyyy HH:mm')}
+                          </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:text-primary"
-                        onClick={() => handlePrintPrescription(p)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 sm:ml-auto self-end sm:self-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isEditing) {
+                              setSelectedPrescription(p)
+                              setIsPrescriptionOpen(true)
+                            }
+                          }}
+                        >
+                          <Pencil className="h-3 w-3 mr-1.5" /> Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePrintPrescription(p)
+                          }}
+                        >
+                          <Printer className="h-3 w-3 mr-1.5" /> Imprimir
+                        </Button>
+                      </div>
+                      <div className="sm:hidden text-[10px] text-muted-foreground/60 w-full text-center mt-1">
+                        Utilize um computador para melhor resultado de impressao
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-[15px]">Laudos e Documentos</h4>
+
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="flex items-center gap-1.5 font-bold text-[13px] uppercase tracking-[0.5px] text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" /> Laudos e Documentos
+                </h4>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8"
+                  className="h-8 text-[12px]"
                   disabled={!isEditing}
                   onClick={() => {
                     setSelectedReport(null)
@@ -2226,13 +2258,15 @@ export default function ProntuarioDetail() {
               </div>
               {loadingDocs ? (
                 <div className="space-y-2">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full rounded-[var(--radius)]" />
+                  <Skeleton className="h-16 w-full rounded-[var(--radius)]" />
                 </div>
               ) : reports.length === 0 ? (
-                <div className="p-4 bg-secondary/10 border border-dashed rounded-md text-center">
-                  <p className="text-[13px] text-muted-foreground">
-                    Nenhum documento gerado para este atendimento.
+                <div className="flex flex-col items-center justify-center py-6 px-4 bg-secondary/5 border border-dashed border-border/50 rounded-[var(--radius)] text-center">
+                  <FileText className="h-7 w-7 text-muted-foreground/25 mb-2" />
+                  <p className="text-[13px] text-muted-foreground">Nenhum documento</p>
+                  <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                    Crie um documento na aba Conduta
                   </p>
                 </div>
               ) : (
@@ -2240,43 +2274,74 @@ export default function ProntuarioDetail() {
                   {reports.map((r) => (
                     <div
                       key={r.id}
-                      className="p-3 bg-secondary/10 border border-border/50 rounded-md flex items-center justify-between"
+                      className="p-3.5 px-4 bg-secondary/10 hover:bg-secondary/20 border border-transparent hover:border-border rounded-[var(--radius)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all duration-150"
+                      onClick={() => {
+                        if (isEditing) {
+                          setSelectedReport(r)
+                          setReportTypePreset(r.report_type)
+                          setIsReportOpen(true)
+                        }
+                      }}
                     >
-                      <div
-                        className="flex items-center gap-3 cursor-pointer"
-                        onClick={() => {
-                          if (isEditing) {
-                            setSelectedReport(r)
-                            setReportTypePreset(r.report_type)
-                            setIsReportOpen(true)
-                          }
-                        }}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h5 className="font-medium text-[13px]">{r.title}</h5>
-                          <p className="text-[11px] text-muted-foreground">
-                            {r.report_type === 'atestado'
-                              ? 'Atestado'
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            'text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap',
+                            r.report_type === 'atestado'
+                              ? 'bg-[hsl(0,84%,60%)]/10 text-[hsl(0,84%,60%)]'
                               : r.report_type === 'laudo'
-                                ? 'Laudo'
+                                ? 'bg-primary/10 text-primary'
                                 : r.report_type === 'encaminhamento'
-                                  ? 'Encaminhamento'
-                                  : 'Solicitação de Exames'}{' '}
-                            • {format(new Date(r.created_at), 'dd/MM/yyyy')}
-                          </p>
+                                  ? 'bg-[hsl(189,100%,42%)]/10 text-[hsl(189,100%,42%)]'
+                                  : 'bg-[hsl(45,93%,47%)]/10 text-[hsl(45,93%,47%)]',
+                          )}
+                        >
+                          {r.report_type === 'atestado'
+                            ? 'Atestado'
+                            : r.report_type === 'laudo'
+                              ? 'Laudo'
+                              : r.report_type === 'encaminhamento'
+                                ? 'Encaminhamento'
+                                : 'Exames'}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-[13px] leading-tight">{r.title}</span>
+                          <span className="text-[11px] text-muted-foreground mt-0.5">
+                            {format(new Date(r.created_at), 'dd/MM/yyyy HH:mm')}
+                          </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:text-primary"
-                        onClick={() => handlePrintReport(r)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 sm:ml-auto self-end sm:self-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isEditing) {
+                              setSelectedReport(r)
+                              setReportTypePreset(r.report_type)
+                              setIsReportOpen(true)
+                            }
+                          }}
+                        >
+                          <Pencil className="h-3 w-3 mr-1.5" /> Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePrintReport(r)
+                          }}
+                        >
+                          <Printer className="h-3 w-3 mr-1.5" /> Imprimir
+                        </Button>
+                      </div>
+                      <div className="sm:hidden text-[10px] text-muted-foreground/60 w-full text-center mt-1">
+                        Utilize um computador para melhor resultado de impressao
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Pill, ShieldAlert, Bug, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Pill, ShieldAlert, Bug, Plus, Trash2, ChevronDown, Loader2 } from 'lucide-react'
 import { prescriptionService } from '@/services/prescriptionService'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -72,7 +71,7 @@ export function PrescriptionDialog({
 
   useEffect(() => {
     if (!existingPrescription && open) {
-      const days = type === 'special_control' ? 60 : 30
+      const days = type === 'special_control' ? 60 : type === 'antimicrobial' ? 10 : 30
       setValidUntil(format(addDays(new Date(), days), 'yyyy-MM-dd'))
     }
   }, [type])
@@ -149,20 +148,25 @@ export function PrescriptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[700px] p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>{existingPrescription ? 'Editar Receita' : 'Nova Receita'}</DialogTitle>
-          <DialogDescription className="sr-only">
-            Crie ou edite a receita médica do paciente {patientName}
-          </DialogDescription>
+      <DialogContent className="max-w-none w-full h-[100dvh] sm:h-auto sm:max-w-[640px] p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col sm:max-h-[90vh]">
+        <DialogHeader className="px-6 py-4 border-b border-border">
+          <DialogTitle className="text-[16px] font-bold flex items-center gap-2">
+            <Pill className="h-[18px] w-[18px] text-primary" />
+            {existingPrescription ? 'Editar Receita' : 'Nova Receita'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          <div className="grid grid-cols-3 gap-3">
+        <div className="overflow-y-auto flex-1 flex flex-col">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px] px-6 py-4">
             {[
-              { id: 'simple', label: 'Receita Simples', icon: Pill },
-              { id: 'special_control', label: 'Controle Especial', icon: ShieldAlert },
-              { id: 'antimicrobial', label: 'Antimicrobiano', icon: Bug },
+              { id: 'simple', label: 'Receita Simples', sub: 'Branca comum', icon: Pill },
+              {
+                id: 'special_control',
+                label: 'Controle Especial',
+                sub: 'Azul (B1/B2)',
+                icon: ShieldAlert,
+              },
+              { id: 'antimicrobial', label: 'Antimicrobiano', sub: 'Validade 10 dias', icon: Bug },
             ].map((t) => {
               const Icon = t.icon
               const isSelected = type === t.id
@@ -171,58 +175,72 @@ export function PrescriptionDialog({
                   key={t.id}
                   onClick={() => setType(t.id)}
                   className={cn(
-                    'flex flex-col items-center justify-center p-3 border rounded-md cursor-pointer transition-colors gap-2 text-center',
+                    'p-3.5 border rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150',
                     isSelected
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'hover:bg-secondary border-border',
+                      ? 'border-primary border-2 bg-primary/5'
+                      : 'border-border hover:border-primary/30',
                   )}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[12px] font-medium leading-tight">{t.label}</span>
+                  <Icon
+                    className={cn(
+                      'h-6 w-6 mx-auto',
+                      isSelected ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  />
+                  <div className="text-[12px] font-semibold mt-1.5">{t.label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{t.sub}</div>
                 </div>
               )
             })}
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-[14px] font-semibold flex items-center gap-2">
-                Medicamentos
-                <span className="bg-secondary text-muted-foreground px-2 py-0.5 rounded-full text-[11px]">
-                  {medications.length}
-                </span>
-              </h4>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                onClick={handleAddMedication}
-              >
-                <Plus className="h-3.5 w-3.5" /> Adicionar
-              </Button>
+          <div className="px-6">
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="text-[13px] font-bold">Medicamentos</h4>
+              <span className="text-[11px] font-semibold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                {medications.length}
+              </span>
             </div>
 
-            <div className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full h-10 border-2 border-dashed border-border/50 rounded-[var(--radius)] text-[13px] text-muted-foreground gap-1.5 mb-3 hover:border-primary/40 hover:text-primary hover:bg-primary/3 transition-all duration-150"
+              onClick={handleAddMedication}
+            >
+              <Plus className="h-3.5 w-3.5" /> Adicionar Medicamento
+            </Button>
+
+            <div className="space-y-2.5">
               {medications.map((med, index) => (
-                <div key={index} className="border border-border rounded-md overflow-hidden">
+                <div
+                  key={index}
+                  className="border border-border rounded-[var(--radius)] overflow-hidden transition-all duration-150"
+                >
                   <div
-                    className="flex items-center justify-between p-3 bg-secondary/30 cursor-pointer hover:bg-secondary/50"
+                    className="p-3 px-4 flex items-center justify-between cursor-pointer"
                     onClick={() => updateMedication(index, 'expanded', !med.expanded)}
                   >
-                    <div className="flex items-center gap-2 font-medium text-[13px]">
-                      <span className="text-muted-foreground">{index + 1}.</span>
-                      {med.name || (
-                        <span className="text-muted-foreground italic">Novo medicamento</span>
+                    <div className="flex items-center gap-2 truncate pr-4">
+                      {med.name ? (
+                        <span className="text-[14px] font-medium text-foreground truncate">
+                          {med.name}
+                        </span>
+                      ) : (
+                        <span className="text-[14px] font-medium italic text-muted-foreground">
+                          Medicamento sem nome
+                        </span>
                       )}
                       {med.dosage && (
-                        <span className="text-muted-foreground font-normal">- {med.dosage}</span>
+                        <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                          • {med.dosage}
+                        </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveMedication(index)
@@ -230,67 +248,77 @@ export function PrescriptionDialog({
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                      {med.expanded ? (
-                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      )}
+                      <ChevronDown
+                        className={cn(
+                          'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
+                          med.expanded && 'rotate-180',
+                        )}
+                      />
                     </div>
                   </div>
 
-                  {med.expanded && (
-                    <div className="p-4 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    className={cn(
+                      'overflow-hidden transition-all duration-200 ease-in-out',
+                      med.expanded
+                        ? 'max-h-[500px] opacity-100 border-t border-primary/30'
+                        : 'max-h-0 opacity-0 border-t-0',
+                    )}
+                  >
+                    <div className="p-4 bg-secondary/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Medicamento *
                         </label>
                         <Input
                           placeholder="Nome do medicamento"
                           value={med.name}
                           onChange={(e) => updateMedication(index, 'name', e.target.value)}
-                          className="h-9 text-[13px]"
+                          className="h-[38px] text-[13px]"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Dosagem
                         </label>
                         <Input
                           placeholder="Ex: 500mg"
                           value={med.dosage}
                           onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
-                          className="h-9 text-[13px]"
+                          className="h-[38px] text-[13px]"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Posologia
                         </label>
                         <Input
                           placeholder="Ex: 8 em 8 horas"
                           value={med.frequency}
                           onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
-                          className="h-9 text-[13px]"
+                          className="h-[38px] text-[13px]"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Duração
                         </label>
                         <Input
                           placeholder="Ex: 7 dias"
                           value={med.duration}
                           onChange={(e) => updateMedication(index, 'duration', e.target.value)}
-                          className="h-9 text-[13px]"
+                          className="h-[38px] text-[13px]"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">Via</label>
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
+                          Via
+                        </label>
                         <Select
                           value={med.route}
                           onValueChange={(v) => updateMedication(index, 'route', v)}
                         >
-                          <SelectTrigger className="h-9 text-[13px]">
+                          <SelectTrigger className="h-[38px] text-[13px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -312,18 +340,18 @@ export function PrescriptionDialog({
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Quantidade
                         </label>
                         <Input
                           placeholder="Ex: 21 comprimidos"
                           value={med.quantity}
                           onChange={(e) => updateMedication(index, 'quantity', e.target.value)}
-                          className="h-9 text-[13px]"
+                          className="h-[38px] text-[13px]"
                         />
                       </div>
-                      <div className="space-y-1 md:col-span-2">
-                        <label className="text-[12px] font-medium text-muted-foreground">
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Instruções
                         </label>
                         <Textarea
@@ -334,26 +362,15 @@ export function PrescriptionDialog({
                         />
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-            <div className="space-y-1">
-              <label className="text-[12px] font-medium text-muted-foreground">
-                Validade da Receita
-              </label>
-              <Input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                className="h-9 text-[13px]"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-[12px] font-medium text-muted-foreground">
+          <div className="px-6 py-4 mt-2">
+            <div className="space-y-1 mb-4">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                 Observações Gerais
               </label>
               <Textarea
@@ -363,15 +380,34 @@ export function PrescriptionDialog({
                 className="min-h-[80px] text-[13px]"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
+                Validade da Receita
+              </label>
+              <Input
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="h-[38px] text-[13px] w-full sm:w-[200px]"
+              />
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-secondary/20">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="px-6 py-4 border-t border-border flex justify-end gap-2.5 sm:gap-2">
+          <Button
+            variant="outline"
+            className="h-[38px] text-[13px] w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar Receita'}
+          <Button
+            className="h-[38px] text-[13px] font-semibold w-full sm:w-auto"
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar Receita'}
           </Button>
         </DialogFooter>
       </DialogContent>
