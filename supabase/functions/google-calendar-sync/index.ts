@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
       .single()
     const tenant_id = profile?.tenant_id
     if (!tenant_id) {
-      return new Response(JSON.stringify({ error: 'Dados nao identificados.' }), {
+       return new Response(JSON.stringify({ error: 'Dados nao identificados.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -174,15 +174,15 @@ Deno.serve(async (req: Request) => {
           { status: 401, headers: corsHeaders },
         )
       if (res.status === 403)
-        return new Response(JSON.stringify({ error: 'Acesso negado ao servico externo.' }), {
-          status: 403,
-          headers: corsHeaders,
-        })
+        return new Response(
+          JSON.stringify({ error: 'Acesso negado ao servico externo.' }),
+          { status: 403, headers: corsHeaders },
+        )
       if (!res.ok)
-        return new Response(JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }), {
-          status: 502,
-          headers: corsHeaders,
-        })
+        return new Response(
+          JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }),
+          { status: 502, headers: corsHeaders },
+        )
 
       const data = await res.json()
       return new Response(JSON.stringify(data.items || []), {
@@ -213,10 +213,10 @@ Deno.serve(async (req: Request) => {
           { status: 401, headers: corsHeaders },
         )
       if (!res.ok)
-        return new Response(JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }), {
-          status: 502,
-          headers: corsHeaders,
-        })
+        return new Response(
+          JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }),
+          { status: 502, headers: corsHeaders },
+        )
       const data = await res.json()
       return new Response(JSON.stringify({ id: data.id, htmlLink: data.htmlLink }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,10 +255,10 @@ Deno.serve(async (req: Request) => {
           { status: 404, headers: corsHeaders },
         )
       if (!res.ok)
-        return new Response(JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }), {
-          status: 502,
-          headers: corsHeaders,
-        })
+        return new Response(
+          JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }),
+          { status: 502, headers: corsHeaders },
+        )
       const data = await res.json()
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -283,10 +283,10 @@ Deno.serve(async (req: Request) => {
           { status: 404, headers: corsHeaders },
         )
       if (!res.ok)
-        return new Response(JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }), {
-          status: 502,
-          headers: corsHeaders,
-        })
+        return new Response(
+          JSON.stringify({ error: 'Falha na sincronizacao. Tente novamente.' }),
+          { status: 502, headers: corsHeaders },
+        )
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
