@@ -59,29 +59,21 @@ Deno.serve(async (req: Request) => {
 
     const secret = Deno.env.get('ENCRYPTION_KEY') || 'mock_secret_for_preview'
     if (secret.length < 16) {
-      return new Response(
-        JSON.stringify({ error: 'Configuracao de seguranca incorreta no servidor.' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ error: 'Configuracao de seguranca incorreta no servidor.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const isRateLimited = await checkRateLimit(supabaseAdmin, user.id, 'encrypt-api-key', 20, 1)
     if (isRateLimited) {
-      return new Response(
-        JSON.stringify({ error: 'Limite de requisicoes atingido. Aguarde alguns minutos.' }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ error: 'Limite de requisicoes atingido. Aguarde alguns minutos.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({ user_id: user.id, action: 'encrypt_api_key_attempt' })
+    await supabaseAdmin.from('audit_logs').insert({ user_id: user.id, action: 'encrypt_api_key_attempt' })
 
     const { data: encrypted, error: rpcError } = await supabaseAdmin.rpc('encrypt_api_key', {
       key_value: key_value,

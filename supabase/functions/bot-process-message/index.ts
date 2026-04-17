@@ -1,9 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders } from '../_shared/cors.ts';
 
-const isUUID = (uuid: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)
+const isUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -13,7 +12,7 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     const body = await req.json().catch(() => ({}))
@@ -34,13 +33,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (typeof message_content !== 'string' || message_content.length > 10000) {
-      return new Response(
-        JSON.stringify({ error: 'Conteudo da mensagem invalido ou excede o limite.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ error: 'Conteudo da mensagem invalido ou excede o limite.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString()
@@ -66,13 +62,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (!botConfig) {
-      return new Response(
-        JSON.stringify({ skipped: true, message: 'Servico desativado no momento.' }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ skipped: true, message: 'Servico desativado no momento.' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const model = botConfig.model || 'gpt-4o'
@@ -89,13 +82,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (!apiKeyData) {
-      return new Response(
-        JSON.stringify({ skipped: true, message: 'Servico de IA nao configurado.' }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ skipped: true, message: 'Servico de IA nao configurado.' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const secretKey = Deno.env.get('ENCRYPTION_KEY') || 'mock_secret'
@@ -119,23 +109,18 @@ Deno.serve(async (req: Request) => {
       .limit(20)
 
     const messagesArray: any[] = []
-
+    
     if (historyData) {
       for (const msg of historyData) {
         let role = 'user'
-        if (
-          msg.direction === 'outbound' &&
-          (msg.sender_type === 'bot' || msg.sender_type === 'human')
-        ) {
+        if (msg.direction === 'outbound' && (msg.sender_type === 'bot' || msg.sender_type === 'human')) {
           role = 'assistant'
         }
         messagesArray.push({ role, content: msg.content })
       }
     }
 
-    let systemPrompt =
-      botConfig.system_prompt ||
-      'Voce e um assistente virtual de uma clinica medica. Seja educado, profissional e objetivo. Responda em portugues. Nao forneca diagnosticos medicos. Ajude com agendamentos, informacoes e duvidas gerais.'
+    let systemPrompt = botConfig.system_prompt || "Voce e um assistente virtual de uma clinica medica. Seja educado, profissional e objetivo. Responda em portugues. Nao forneca diagnosticos medicos. Ajude com agendamentos, informacoes e duvidas gerais."
 
     let ragContextMessage: any = null
     if (botConfig.rag_enabled) {
@@ -144,25 +129,25 @@ Deno.serve(async (req: Request) => {
           query_text: message_content,
           match_threshold: 0.7,
           match_count: 5,
-          bot_id: botConfig.id,
+          bot_id: botConfig.id
         })
 
         if (!ragError && ragData && ragData.length > 0) {
           const contents = ragData.map((r: any) => r.content).join('\n\n')
           ragContextMessage = {
             role: 'system',
-            content: `Contexto relevante da base de conhecimento:\n${contents}`,
+            content: `Contexto relevante da base de conhecimento:\n${contents}`
           }
         }
       } catch (e) {
-        console.warn('RAG Context info issue handled silently')
+        console.warn("RAG Context info issue handled silently")
       }
     }
 
     let aiResponseText = ''
 
     if (provider === 'openai') {
-      const apiMessages = [{ role: 'system', content: systemPrompt }]
+      const apiMessages = [ { role: 'system', content: systemPrompt } ]
       if (ragContextMessage) {
         apiMessages.push(ragContextMessage)
       }
@@ -171,7 +156,7 @@ Deno.serve(async (req: Request) => {
       const oaRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${decryptedKey}`,
+          'Authorization': `Bearer ${decryptedKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -179,7 +164,7 @@ Deno.serve(async (req: Request) => {
           messages: apiMessages,
           temperature: botConfig.temperature ?? 0.7,
           max_tokens: botConfig.max_tokens ?? 1024,
-        }),
+        })
       })
 
       if (!oaRes.ok) {
@@ -192,6 +177,7 @@ Deno.serve(async (req: Request) => {
 
       const data = await oaRes.json()
       aiResponseText = data.choices?.[0]?.message?.content || ''
+
     } else if (provider === 'anthropic') {
       let anthropicModel = model
       if (model === 'claude-sonnet') anthropicModel = 'claude-sonnet-4-20250514'
@@ -213,8 +199,8 @@ Deno.serve(async (req: Request) => {
           model: anthropicModel,
           max_tokens: botConfig.max_tokens ?? 1024,
           system: finalSystemPrompt,
-          messages: messagesArray,
-        }),
+          messages: messagesArray, 
+        })
       })
 
       if (!antRes.ok) {
@@ -230,37 +216,28 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!aiResponseText) {
-      aiResponseText = 'Desculpe, nao consegui processar sua solicitacao no momento.'
+       aiResponseText = 'Desculpe, nao consegui processar sua solicitacao no momento.'
     }
 
-    const { data: newMsg, error: newMsgErr } = await supabaseAdmin
-      .from('messages')
-      .insert({
-        tenant_id,
-        conversation_id,
-        direction: 'outbound',
-        sender_type: 'bot',
-        content: aiResponseText,
-        message_type: 'text',
-      })
-      .select('id')
-      .single()
+    const { data: newMsg, error: newMsgErr } = await supabaseAdmin.from('messages').insert({
+      tenant_id,
+      conversation_id,
+      direction: 'outbound',
+      sender_type: 'bot',
+      content: aiResponseText,
+      message_type: 'text'
+    }).select('id').single()
 
-    await supabaseAdmin
-      .from('conversations')
-      .update({
-        last_message_at: new Date().toISOString(),
-      })
-      .eq('id', conversation_id)
+    await supabaseAdmin.from('conversations').update({
+      last_message_at: new Date().toISOString()
+    }).eq('id', conversation_id)
 
-    const { data: convData } = await supabaseAdmin
-      .from('conversations')
+    const { data: convData } = await supabaseAdmin.from('conversations')
       .select('phone_number')
       .eq('id', conversation_id)
       .single()
-
-    const { data: uazapiKeyData } = await supabaseAdmin
-      .from('tenant_api_keys')
+      
+    const { data: uazapiKeyData } = await supabaseAdmin.from('tenant_api_keys')
       .select('encrypted_key, metadata')
       .eq('tenant_id', tenant_id)
       .eq('provider', 'uazapi')
@@ -277,28 +254,25 @@ Deno.serve(async (req: Request) => {
         const uazapiRes = await fetch(`https://${subdomain}.uazapi.com/send/text`, {
           method: 'POST',
           headers: {
-            token: uazapiDecryptedKey,
-            'Content-Type': 'application/json',
+             'token': uazapiDecryptedKey,
+             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             number: convData.phone_number,
             text: aiResponseText,
-            readchat: true,
-          }),
+            readchat: true
+          })
         })
 
         if (uazapiRes.ok) {
-          const uazapiData = await uazapiRes.json()
-          const msgId = uazapiData.messageId || uazapiData.id || `bot_mock_${Date.now()}`
-          if (newMsg?.id) {
-            await supabaseAdmin
-              .from('messages')
-              .update({
-                uazapi_message_id: msgId,
-                delivery_status: 'sent',
-              })
-              .eq('id', newMsg.id)
-          }
+           const uazapiData = await uazapiRes.json()
+           const msgId = uazapiData.messageId || uazapiData.id || `bot_mock_${Date.now()}`
+           if (newMsg?.id) {
+             await supabaseAdmin.from('messages').update({
+               uazapi_message_id: msgId,
+               delivery_status: 'sent'
+             }).eq('id', newMsg.id)
+           }
         }
       }
     }
@@ -307,6 +281,7 @@ Deno.serve(async (req: Request) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+
   } catch (error: any) {
     console.error('bot-process-message error:', error)
     return new Response(JSON.stringify({ error: 'Erro interno do servidor. Tente novamente.' }), {

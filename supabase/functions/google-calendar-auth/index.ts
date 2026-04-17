@@ -94,10 +94,10 @@ Deno.serve(async (req: Request) => {
 
       const refreshEncrypted = (keyData.metadata as any)?.refresh_token_encrypted
       if (!refreshEncrypted) {
-        return new Response(JSON.stringify({ error: 'Credenciais indisponiveis.' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+         return new Response(JSON.stringify({ error: 'Credenciais indisponiveis.' }), {
+           status: 400,
+           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         })
       }
 
       const { data: decryptRes, error: decErr } = await supabaseAdmin.rpc('decrypt_api_key', {
@@ -105,10 +105,10 @@ Deno.serve(async (req: Request) => {
         secret_key: ENCRYPTION_KEY,
       })
       if (decErr || !decryptRes) {
-        return new Response(JSON.stringify({ error: 'Erro ao processar configuracoes.' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+         return new Response(JSON.stringify({ error: 'Erro ao processar configuracoes.' }), {
+           status: 500,
+           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         })
       }
 
       const bodyParams = new URLSearchParams()
@@ -124,10 +124,10 @@ Deno.serve(async (req: Request) => {
       })
 
       if (!tokenRes.ok) {
-        return new Response(JSON.stringify({ error: 'Falha na atualizacao das credenciais.' }), {
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+         return new Response(JSON.stringify({ error: 'Falha na atualizacao das credenciais.' }), {
+           status: 502,
+           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         })
       }
       const tokenData = await tokenRes.json()
 
@@ -136,10 +136,10 @@ Deno.serve(async (req: Request) => {
         secret_key: ENCRYPTION_KEY,
       })
       if (encErr) {
-        return new Response(JSON.stringify({ error: 'Erro ao processar configuracoes.' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+         return new Response(JSON.stringify({ error: 'Erro ao processar configuracoes.' }), {
+           status: 500,
+           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         })
       }
 
       const token_expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString()

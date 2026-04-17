@@ -46,13 +46,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (typeof text !== 'string' || text.length === 0 || text.length > 4096) {
-      return new Response(
-        JSON.stringify({ error: 'Mensagem invalida ou excede o tamanho maximo.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ error: 'Mensagem invalida ou excede o tamanho maximo.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const { data: profile } = await supabaseAdmin
@@ -60,28 +57,19 @@ Deno.serve(async (req: Request) => {
       .select('tenant_id')
       .eq('id', user.id)
       .single()
-
+      
     if (!profile?.tenant_id)
       return new Response(JSON.stringify({ error: 'Nao autorizado' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
 
-    const isRateLimited = await checkRateLimit(
-      supabaseAdmin,
-      profile.tenant_id,
-      'whatsapp-send',
-      60,
-      1,
-    )
+    const isRateLimited = await checkRateLimit(supabaseAdmin, profile.tenant_id, 'whatsapp-send', 60, 1)
     if (isRateLimited) {
-      return new Response(
-        JSON.stringify({ error: 'Limite de requisicoes atingido. Aguarde alguns minutos.' }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
+      return new Response(JSON.stringify({ error: 'Limite de requisicoes atingido. Aguarde alguns minutos.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const { data: module } = await supabaseAdmin
