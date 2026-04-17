@@ -1,11 +1,5 @@
 import { useState, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Pill, ShieldAlert, Bug, Plus, Trash2, ChevronDown, Loader2 } from 'lucide-react'
+import { Pill, ShieldAlert, Bug, Plus, Trash2, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { prescriptionService } from '@/services/prescriptionService'
+import { aiPrescriptionService } from '@/services/aiPrescriptionService'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { format, addDays } from 'date-fns'
@@ -28,6 +23,8 @@ export function PrescriptionDialog({
   doctorId,
   patientId,
   patientName,
+  specialty,
+  assessmentText,
   existingPrescription,
   onSaved,
   open,
@@ -35,17 +32,26 @@ export function PrescriptionDialog({
 }: any) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
   const [type, setType] = useState('simple')
   const [medications, setMedications] = useState<any[]>([])
   const [notes, setNotes] = useState('')
+  const [aiNotes, setAiNotes] = useState('')
+  const [aiDisclaimer, setAiDisclaimer] = useState('')
   const [validUntil, setValidUntil] = useState('')
 
   useEffect(() => {
     if (open) {
+      setAiNotes('')
+      setAiDisclaimer('')
       if (existingPrescription) {
         setType(existingPrescription.prescription_type || 'simple')
         setMedications(
-          existingPrescription.medications?.map((m: any) => ({ ...m, expanded: false })) || [],
+          existingPrescription.medications?.map((m: any) => ({
+            ...m,
+            expanded: false,
+            ai_suggested: false,
+          })) || [],
         )
         setNotes(existingPrescription.notes || existingPrescription.general_instructions || '')
         setValidUntil(existingPrescription.valid_until ? existingPrescription.valid_until : '')
@@ -61,6 +67,7 @@ export function PrescriptionDialog({
             instructions: '',
             quantity: '',
             expanded: true,
+            ai_suggested: false,
           },
         ])
         setNotes('')
@@ -88,6 +95,7 @@ export function PrescriptionDialog({
         instructions: '',
         quantity: '',
         expanded: true,
+        ai_suggested: false,
       },
     ])
   }
@@ -101,7 +109,58 @@ export function PrescriptionDialog({
   const updateMedication = (index: number, field: string, value: string | boolean) => {
     const newMeds = [...medications]
     newMeds[index] = { ...newMeds[index], [field]: value }
+    if (field !== 'expanded') {
+      newMeds[index].ai_suggested = false
+    }
     setMedications(newMeds)
+  }
+
+  const handleSuggestWithAI = async () => {
+    if (!assessmentText) return
+    setAiLoading(true)
+    try {
+      const patientContext = medications
+        .map((m) => m.name)
+        .filter(Boolean)
+        .join(', ')
+
+      const data = await aiPrescriptionService.suggestPrescription(
+        tenantId,
+        assessmentText,
+        specialty || 'Geral',
+        patientContext ? `Medicamentos atuais na lista: ${patientContext}` : undefined,
+        'prescription',
+      )
+
+      if (data.medications && data.medications.length > 0) {
+        const newMeds = data.medications.map((m: any) => ({
+          name: m.name || '',
+          dosage: m.dosage || '',
+          frequency: m.frequency || '',
+          duration: m.duration || '',
+          route: m.route || 'Via oral',
+          instructions: m.instructions || '',
+          quantity: m.quantity || '',
+          expanded: true,
+          ai_suggested: true,
+        }))
+        setMedications((prev) => {
+          const filtered = prev.filter((m) => m.name.trim() !== '' || m.dosage.trim() !== '')
+          return [...filtered, ...newMeds]
+        })
+        toast({ title: `IA sugeriu ${newMeds.length} medicamentos. Revise antes de salvar.` })
+      }
+      if (data.notes) setAiNotes(data.notes)
+      if (data.disclaimer) setAiDisclaimer(data.disclaimer)
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao sugerir prescrição',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const handleSave = async () => {
@@ -118,7 +177,7 @@ export function PrescriptionDialog({
     setLoading(true)
     try {
       const cleanMeds = medications.map((m) => {
-        const { expanded, ...rest } = m
+        const { expanded, ai_suggested, ...rest } = m
         return rest
       })
 
@@ -148,25 +207,30 @@ export function PrescriptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-full h-[100dvh] sm:h-auto sm:max-w-[640px] p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col sm:max-h-[90vh]">
-        <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle className="text-[16px] font-bold flex items-center gap-2">
-            <Pill className="h-[18px] w-[18px] text-primary" />
+      <DialogContent className="max-w-[640px] w-full p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh]">
+        <DialogHeader className="px-6 py-5 border-b border-border shrink-0">
+          <DialogTitle className="text-[18px] font-bold flex items-center gap-2">
+            <Pill className="h-5 w-5 text-primary" />
             {existingPrescription ? 'Editar Receita' : 'Nova Receita'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 flex flex-col">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px] px-6 py-4">
+        <div className="overflow-y-auto flex-1 flex flex-col pb-4">
+          <div className="flex overflow-x-auto sm:overflow-visible gap-2 px-6 mt-4 pb-2 sm:pb-0 shrink-0">
             {[
-              { id: 'simple', label: 'Receita Simples', sub: 'Branca comum', icon: Pill },
+              { id: 'simple', label: 'Receita Simples', icon: Pill, color: 'text-primary' },
               {
                 id: 'special_control',
                 label: 'Controle Especial',
-                sub: 'Azul (B1/B2)',
                 icon: ShieldAlert,
+                color: 'text-[hsl(45,93%,47%)]',
               },
-              { id: 'antimicrobial', label: 'Antimicrobiano', sub: 'Validade 10 dias', icon: Bug },
+              {
+                id: 'antimicrobial',
+                label: 'Antimicrobiano',
+                icon: Bug,
+                color: 'text-[hsl(270,60%,50%)]',
+              },
             ].map((t) => {
               const Icon = t.icon
               const isSelected = type === t.id
@@ -175,54 +239,84 @@ export function PrescriptionDialog({
                   key={t.id}
                   onClick={() => setType(t.id)}
                   className={cn(
-                    'p-3.5 border rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150',
+                    'flex-1 p-3 border-2 rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150 min-w-[120px] sm:min-w-0',
                     isSelected
-                      ? 'border-primary border-2 bg-primary/5'
-                      : 'border-border hover:border-primary/30',
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40',
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      'h-6 w-6 mx-auto',
-                      isSelected ? 'text-primary' : 'text-muted-foreground',
-                    )}
-                  />
-                  <div className="text-[12px] font-semibold mt-1.5">{t.label}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{t.sub}</div>
+                  <Icon className={cn('h-6 w-6 mx-auto mb-1.5', t.color)} />
+                  <div className="text-[12px] font-semibold leading-tight">{t.label}</div>
                 </div>
               )
             })}
           </div>
 
-          <div className="px-6">
-            <div className="flex items-center gap-2 mb-3">
-              <h4 className="text-[13px] font-bold">Medicamentos</h4>
-              <span className="text-[11px] font-semibold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                {medications.length}
-              </span>
+          <div className="px-6 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h4 className="text-[13px] font-bold">Medicamentos</h4>
+                <span className="bg-primary/10 text-primary font-bold text-[11px] px-2 py-0.5 rounded-full">
+                  {medications.length}
+                </span>
+              </div>
+              {assessmentText && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[12px] gap-1.5"
+                  onClick={handleSuggestWithAI}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  Sugerir com IA
+                </Button>
+              )}
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full h-10 border-2 border-dashed border-border/50 rounded-[var(--radius)] text-[13px] text-muted-foreground gap-1.5 mb-3 hover:border-primary/40 hover:text-primary hover:bg-primary/3 transition-all duration-150"
-              onClick={handleAddMedication}
-            >
-              <Plus className="h-3.5 w-3.5" /> Adicionar Medicamento
-            </Button>
+            {aiLoading && (
+              <div className="space-y-3 mb-3">
+                <div className="h-[60px] w-full bg-secondary/20 animate-pulse rounded-[var(--radius)]" />
+                <div className="h-[60px] w-full bg-secondary/20 animate-pulse rounded-[var(--radius)]" />
+              </div>
+            )}
 
-            <div className="space-y-2.5">
+            {aiNotes && (
+              <div className="p-3 bg-primary/5 border border-primary/15 rounded-[var(--radius)] mb-4">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-[12px] text-foreground leading-[1.5]">{aiNotes}</span>
+                    {aiDisclaimer && (
+                      <span className="text-[11px] text-muted-foreground italic mt-1">
+                        {aiDisclaimer}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
               {medications.map((med, index) => (
                 <div
                   key={index}
-                  className="border border-border rounded-[var(--radius)] overflow-hidden transition-all duration-150"
+                  className="border border-border rounded-[var(--radius)] overflow-hidden transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
                 >
                   <div
-                    className="p-3 px-4 flex items-center justify-between cursor-pointer"
+                    className="p-3 px-4 flex items-center justify-between cursor-pointer bg-secondary/20 group"
                     onClick={() => updateMedication(index, 'expanded', !med.expanded)}
                   >
                     <div className="flex items-center gap-2 truncate pr-4">
+                      {med.ai_suggested && (
+                        <Sparkles className="h-2.5 w-2.5 text-primary flex-shrink-0" />
+                      )}
                       {med.name ? (
-                        <span className="text-[14px] font-medium text-foreground truncate">
+                        <span className="text-[14px] font-semibold text-foreground truncate">
                           {med.name}
                         </span>
                       ) : (
@@ -232,7 +326,7 @@ export function PrescriptionDialog({
                       )}
                       {med.dosage && (
                         <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                          • {med.dosage}
+                          {med.dosage}
                         </span>
                       )}
                     </div>
@@ -240,7 +334,7 @@ export function PrescriptionDialog({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-destructive/10"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveMedication(index)
@@ -250,23 +344,16 @@ export function PrescriptionDialog({
                       </Button>
                       <ChevronDown
                         className={cn(
-                          'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
+                          'h-4 w-4 text-muted-foreground transition-transform duration-200',
                           med.expanded && 'rotate-180',
                         )}
                       />
                     </div>
                   </div>
 
-                  <div
-                    className={cn(
-                      'overflow-hidden transition-all duration-200 ease-in-out',
-                      med.expanded
-                        ? 'max-h-[500px] opacity-100 border-t border-primary/30'
-                        : 'max-h-0 opacity-0 border-t-0',
-                    )}
-                  >
-                    <div className="p-4 bg-secondary/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
+                  {med.expanded && (
+                    <div className="p-4 border-t border-border bg-card grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1 sm:col-span-2">
                         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                           Medicamento *
                         </label>
@@ -274,7 +361,7 @@ export function PrescriptionDialog({
                           placeholder="Nome do medicamento"
                           value={med.name}
                           onChange={(e) => updateMedication(index, 'name', e.target.value)}
-                          className="h-[38px] text-[13px]"
+                          className="h-[38px] text-[13px] rounded-[var(--radius)]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -285,7 +372,7 @@ export function PrescriptionDialog({
                           placeholder="Ex: 500mg"
                           value={med.dosage}
                           onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
-                          className="h-[38px] text-[13px]"
+                          className="h-[38px] text-[13px] rounded-[var(--radius)]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -296,7 +383,7 @@ export function PrescriptionDialog({
                           placeholder="Ex: 8 em 8 horas"
                           value={med.frequency}
                           onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
-                          className="h-[38px] text-[13px]"
+                          className="h-[38px] text-[13px] rounded-[var(--radius)]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -307,7 +394,7 @@ export function PrescriptionDialog({
                           placeholder="Ex: 7 dias"
                           value={med.duration}
                           onChange={(e) => updateMedication(index, 'duration', e.target.value)}
-                          className="h-[38px] text-[13px]"
+                          className="h-[38px] text-[13px] rounded-[var(--radius)]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -318,7 +405,7 @@ export function PrescriptionDialog({
                           value={med.route}
                           onValueChange={(v) => updateMedication(index, 'route', v)}
                         >
-                          <SelectTrigger className="h-[38px] text-[13px]">
+                          <SelectTrigger className="h-[38px] text-[13px] rounded-[var(--radius)]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -347,7 +434,7 @@ export function PrescriptionDialog({
                           placeholder="Ex: 21 comprimidos"
                           value={med.quantity}
                           onChange={(e) => updateMedication(index, 'quantity', e.target.value)}
-                          className="h-[38px] text-[13px]"
+                          className="h-[38px] text-[13px] rounded-[var(--radius)]"
                         />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
@@ -358,18 +445,26 @@ export function PrescriptionDialog({
                           placeholder="Ex: Tomar após as refeições. Não ingerir com álcool."
                           value={med.instructions}
                           onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
-                          className="min-h-[60px] text-[13px] resize-none"
+                          className="min-h-[64px] text-[13px] resize-none"
                         />
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
+
+            <Button
+              variant="outline"
+              className="w-full h-10 border-dashed border-border mt-2 text-[13px] gap-1.5 text-primary hover:bg-primary/5 hover:border-primary"
+              onClick={handleAddMedication}
+            >
+              <Plus className="h-3.5 w-3.5" /> Adicionar Medicamento
+            </Button>
           </div>
 
-          <div className="px-6 py-4 mt-2">
-            <div className="space-y-1 mb-4">
+          <div className="px-6 mt-4">
+            <div className="space-y-1 mb-3">
               <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                 Observações Gerais
               </label>
@@ -388,28 +483,28 @@ export function PrescriptionDialog({
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="h-[38px] text-[13px] w-full sm:w-[200px]"
+                className="h-[38px] text-[13px] w-[200px]"
               />
             </div>
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t border-border flex justify-end gap-2.5 sm:gap-2">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-2 shrink-0">
           <Button
-            variant="outline"
-            className="h-[38px] text-[13px] w-full sm:w-auto"
+            variant="ghost"
+            className="h-10 text-[13px] w-full sm:w-auto"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="h-[38px] text-[13px] font-semibold w-full sm:w-auto"
+            className="h-10 text-[13px] font-semibold gap-1.5 hover:bg-primary/90 active:scale-97 w-full sm:w-auto"
             onClick={handleSave}
             disabled={loading}
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar Receita'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

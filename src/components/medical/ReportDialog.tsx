@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { FileCheck, FileText, Forward, TestTube, MapPin, Tag, Loader2 } from 'lucide-react'
+import {
+  FileCheck,
+  FileText,
+  Forward,
+  FlaskConical,
+  MapPin,
+  Tag,
+  Loader2,
+  Sparkles,
+} from 'lucide-react'
 import { medicalReportService } from '@/services/medicalReportService'
+import { aiPrescriptionService } from '@/services/aiPrescriptionService'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +24,8 @@ export function ReportDialog({
   doctorId,
   patientId,
   patientName,
+  specialty,
+  assessmentText,
   existingReport,
   onSaved,
   open,
@@ -28,6 +34,8 @@ export function ReportDialog({
 }: any) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiDisclaimer, setAiDisclaimer] = useState('')
   const [reportType, setReportType] = useState(defaultType)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -37,6 +45,7 @@ export function ReportDialog({
 
   useEffect(() => {
     if (open) {
+      setAiDisclaimer('')
       if (existingReport) {
         setReportType(existingReport.report_type || 'laudo')
         setTitle(existingReport.title || '')
@@ -88,12 +97,40 @@ export function ReportDialog({
   }
 
   useEffect(() => {
-    if (reportType === 'atestado' && !existingReport) {
+    if (reportType === 'atestado' && !existingReport && !aiDisclaimer) {
       setContent(
         `Atesto para os devidos fins que o(a) paciente ${patientName || '______________'}, compareceu à consulta médica nesta data, necessitando de ${daysOff} dia(s) de afastamento de suas atividades.`,
       )
     }
   }, [daysOff])
+
+  const handleSuggestWithAI = async () => {
+    if (!assessmentText) return
+    setAiLoading(true)
+    try {
+      const data = await aiPrescriptionService.suggestPrescription(
+        tenantId,
+        assessmentText,
+        specialty || 'Geral',
+        undefined,
+        reportType,
+      )
+
+      if (data.content) setContent(data.content)
+      if (data.days_off) setDaysOff(data.days_off.toString())
+      if (data.cid10) setCid10(data.cid10)
+      if (data.disclaimer) setAiDisclaimer(data.disclaimer)
+      toast({ title: 'Documento sugerido pela IA. Revise antes de salvar.' })
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao sugerir documento',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!title.trim() && reportType === 'laudo') {
@@ -141,30 +178,35 @@ export function ReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-full h-[100dvh] sm:h-auto sm:max-w-[580px] p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col sm:max-h-[90vh]">
-        <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle className="text-[16px] font-bold flex items-center gap-2">
-            <FileText className="h-[18px] w-[18px] text-primary" />
+      <DialogContent className="max-w-[600px] w-full p-0 sm:rounded-[var(--radius)] overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh]">
+        <DialogHeader className="px-6 py-5 border-b border-border shrink-0">
+          <DialogTitle className="text-[18px] font-bold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
             {existingReport ? 'Editar Documento' : 'Novo Documento'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 flex flex-col">
-          <div className="grid grid-cols-2 gap-[10px] px-6 py-4">
+        <div className="overflow-y-auto flex-1 flex flex-col pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-6 mt-4 shrink-0">
             {[
-              { id: 'atestado', label: 'Atestado', sub: 'Afastamento', icon: FileCheck },
-              { id: 'laudo', label: 'Laudo', sub: 'Relatorio medico', icon: FileText },
+              {
+                id: 'atestado',
+                label: 'Atestado',
+                icon: FileCheck,
+                color: 'text-[hsl(152,68%,40%)]',
+              },
+              { id: 'laudo', label: 'Laudo', icon: FileText, color: 'text-primary' },
               {
                 id: 'encaminhamento',
                 label: 'Encaminhamento',
-                sub: 'Outro especialista',
                 icon: Forward,
+                color: 'text-[hsl(270,60%,50%)]',
               },
               {
                 id: 'solicitacao_exames',
-                label: 'Solicitacao de Exames',
-                sub: 'Laboratorio/imagem',
-                icon: TestTube,
+                label: 'Solicitação de Exames',
+                icon: FlaskConical,
+                color: 'text-[hsl(45,93%,47%)]',
               },
             ].map((t) => {
               const Icon = t.icon
@@ -174,26 +216,51 @@ export function ReportDialog({
                   key={t.id}
                   onClick={() => handleTypeChange(t.id)}
                   className={cn(
-                    'p-3.5 border rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150',
+                    'p-3.5 border-2 rounded-[var(--radius)] text-center cursor-pointer transition-all duration-150',
                     isSelected
-                      ? 'border-primary border-2 bg-primary/5'
-                      : 'border-border hover:border-primary/30',
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40',
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      'h-6 w-6 mx-auto',
-                      isSelected ? 'text-primary' : 'text-muted-foreground',
-                    )}
-                  />
-                  <div className="text-[12px] font-semibold mt-1.5">{t.label}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{t.sub}</div>
+                  <Icon className={cn('h-6 w-6 mx-auto mb-1.5', t.color)} />
+                  <div className="text-[11px] font-semibold leading-tight">{t.label}</div>
                 </div>
               )
             })}
           </div>
 
-          <div className="px-6 pb-6 space-y-4">
+          <div className="px-6 mt-5 space-y-4">
+            <div className="flex items-center justify-between h-8">
+              <span />
+              {(reportType === 'atestado' || reportType === 'laudo') && assessmentText && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[12px] gap-1.5"
+                  onClick={handleSuggestWithAI}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  Sugerir com IA
+                </Button>
+              )}
+            </div>
+
+            {aiDisclaimer && (
+              <div className="p-3 bg-primary/5 border border-primary/15 rounded-[var(--radius)] mb-2">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-[11px] text-muted-foreground italic mt-0.5">
+                    {aiDisclaimer}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {reportType === 'laudo' && (
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
@@ -203,29 +270,26 @@ export function ReportDialog({
                   placeholder="Ex: Laudo Médico para Procedimento Estético"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="h-[38px] text-[13px]"
+                  className="h-[38px] text-[13px] rounded-[var(--radius)]"
                 />
               </div>
             )}
 
             {reportType === 'atestado' && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-wrap gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px] block">
                     Dias de Afastamento
                   </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={daysOff}
-                      onChange={(e) => setDaysOff(e.target.value)}
-                      className="h-[38px] w-[80px] text-[16px] font-bold text-center"
-                    />
-                    <span className="text-[13px] text-muted-foreground">dia(s)</span>
-                  </div>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={daysOff}
+                    onChange={(e) => setDaysOff(e.target.value)}
+                    className="h-[38px] w-[100px] text-[14px] font-semibold text-center rounded-[var(--radius)]"
+                  />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1 min-w-[160px] max-w-[160px]">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                     CID-10 (Opcional)
                   </label>
@@ -235,7 +299,7 @@ export function ReportDialog({
                       placeholder="Ex: J06.9"
                       value={cid10}
                       onChange={(e) => setCid10(e.target.value)}
-                      className="h-[38px] text-[13px] pl-9 font-mono"
+                      className="h-[38px] text-[13px] pl-9 font-mono placeholder:text-muted-foreground rounded-[var(--radius)]"
                     />
                   </div>
                 </div>
@@ -253,7 +317,7 @@ export function ReportDialog({
                     placeholder="Ex: Ortopedista, Dr. Fulano"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
-                    className="h-[38px] text-[13px] pl-9"
+                    className="h-[38px] text-[13px] pl-9 rounded-[var(--radius)]"
                   />
                 </div>
               </div>
@@ -266,13 +330,13 @@ export function ReportDialog({
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.3px]">
                   CID-10 (Opcional)
                 </label>
-                <div className="relative w-full sm:w-[200px]">
+                <div className="relative w-[160px]">
                   <Tag className="absolute left-3 top-[12px] h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Ex: J06.9"
                     value={cid10}
                     onChange={(e) => setCid10(e.target.value)}
-                    className="h-[38px] text-[13px] pl-9 font-mono"
+                    className="h-[38px] text-[13px] pl-9 font-mono placeholder:text-muted-foreground rounded-[var(--radius)]"
                   />
                 </div>
               </div>
@@ -294,28 +358,31 @@ export function ReportDialog({
                 }
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="min-h-[160px] text-[13px] leading-[1.6] resize-y placeholder:text-muted-foreground/60"
+                className={cn(
+                  'min-h-[160px] text-[13px] leading-[1.6] resize-y rounded-[var(--radius)] font-mono bg-secondary/10 border-border',
+                  content ? 'text-foreground' : 'text-muted-foreground',
+                )}
               />
             </div>
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t border-border flex justify-end gap-2.5 sm:gap-2">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-2 shrink-0">
           <Button
-            variant="outline"
-            className="h-[38px] text-[13px] w-full sm:w-auto"
+            variant="ghost"
+            className="h-10 text-[13px] w-full sm:w-auto"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="h-[38px] text-[13px] font-semibold w-full sm:w-auto"
+            className="h-10 text-[13px] font-semibold gap-1.5 hover:bg-primary/90 active:scale-97 w-full sm:w-auto"
             onClick={handleSave}
             disabled={loading}
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar Documento'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )
