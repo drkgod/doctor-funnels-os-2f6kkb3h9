@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { GenericPage } from '@/components/GenericPage'
 import { ModuleGate } from '@/components/ModuleGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -39,6 +39,14 @@ export default function Reports() {
   const [activeFilter, setActiveFilter] = useState<string>('month')
   const [activeTab, setActiveTab] = useState('appointments')
   const [exportData, setExportData] = useState<any>(null)
+
+  // Fix 1: Stabilize dateRange object to prevent infinite re-renders in child tabs
+  const dateRange = useMemo(() => ({ from: dateFrom, to: dateTo }), [dateFrom, dateTo])
+
+  // Fix 5: Stable callback to prevent infinite re-renders when data loads
+  const handleDataLoaded = useCallback((data: any) => {
+    setExportData(data)
+  }, [])
 
   const setDates = (filter: string) => {
     setActiveFilter(filter)
@@ -150,29 +158,29 @@ export default function Reports() {
             <TabsContent value="appointments" className="m-0 border-none p-0 outline-none">
               <ConsultasTab
                 tenantId={tenantId}
-                dateRange={{ from: dateFrom, to: dateTo }}
-                onDataLoaded={setExportData}
+                dateRange={dateRange}
+                onDataLoaded={handleDataLoaded}
               />
             </TabsContent>
             <TabsContent value="patients" className="m-0 border-none p-0 outline-none">
               <PacientesTab
                 tenantId={tenantId}
-                dateRange={{ from: dateFrom, to: dateTo }}
-                onDataLoaded={setExportData}
+                dateRange={dateRange}
+                onDataLoaded={handleDataLoaded}
               />
             </TabsContent>
             <TabsContent value="records" className="m-0 border-none p-0 outline-none">
               <ProntuariosTab
                 tenantId={tenantId}
-                dateRange={{ from: dateFrom, to: dateTo }}
-                onDataLoaded={setExportData}
+                dateRange={dateRange}
+                onDataLoaded={handleDataLoaded}
               />
             </TabsContent>
             <TabsContent value="transcriptions" className="m-0 border-none p-0 outline-none">
               <TranscricoesTab
                 tenantId={tenantId}
-                dateRange={{ from: dateFrom, to: dateTo }}
-                onDataLoaded={setExportData}
+                dateRange={dateRange}
+                onDataLoaded={handleDataLoaded}
               />
             </TabsContent>
           </div>
